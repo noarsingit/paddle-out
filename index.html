@@ -251,7 +251,7 @@
 <div class="overlay" id="pause" hidden>
   <div class="card" style="max-width:320px;align-items:flex-start">
     <h2>Paused</h2>
-    <p class="lede">Floating in the warm Indian Ocean. Press <kbd>P</kbd> or the button to keep surfing.</p>
+    <p class="lede">Floating in the warm Indian Ocean. Press <kbd>Space</kbd>, <kbd>P</kbd> or the button to keep surfing.</p>
     <button class="go" id="resumeBtn">Resume</button>
   </div>
 </div>
@@ -306,6 +306,7 @@
   const KEYMAP = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', Space: 'act', ShiftLeft: 'dive', ShiftRight: 'dive', KeyZ: 'dance', KeyX: 'jump' };
   window.addEventListener('keydown', e => {
     if ((G.mode === 'title' || G.mode === 'over') && (e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); startGame(); return; }
+    if (paused) { if (['Space', 'Enter', 'KeyP', 'Escape'].includes(e.code)) { e.preventDefault(); togglePause(); } return; }
     if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
     const k = KEYMAP[e.code];
     if (k) { e.preventDefault(); if (k === 'act' && !keys.act) actPressed = true; if (k === 'dive' && !keys.dive) divePressed = true; if (k === 'dance' && !keys.dance) dancePressed = true; if (k === 'jump' && !keys.jump) jumpPressed = true; keys[k] = true; }

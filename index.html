@@ -1,0 +1,1347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Paddle Out</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Karla:wght@400;600;700&family=Shrikhand&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --deep: #0A3347;
+    --sea: #11596B;
+    --shallow: #48BFB2;
+    --foam: #F4FBF8;
+    --sand: #E8CF9E;
+    --board: #FFC43D;
+    --coral: #F2615A;
+    --ink: #08212D;
+    --panel: rgba(8, 33, 45, 0.72);
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--deep); color: var(--foam);
+    font: 15px/1.5 Karla, system-ui, -apple-system, sans-serif;
+    overflow: hidden; -webkit-user-select: none; user-select: none;
+  }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  .hud {
+    position: fixed; left: 0; right: 0; top: 0;
+    padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 0;
+    display: flex; flex-wrap: wrap; gap: 8px 12px;
+    align-items: flex-start; justify-content: space-between;
+    pointer-events: none;
+  }
+  .hud-group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    background: var(--panel); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    border-radius: 12px; padding: 7px 12px; display: flex; align-items: center; gap: 10px;
+  }
+  .label { font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; opacity: .7; font-weight: 700; }
+  .score { font-family: "DM Mono", ui-monospace, monospace; font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; color: var(--board); min-width: 3ch; }
+  .boards { display: flex; gap: 5px; }
+  .boards i { width: 8px; height: 22px; border-radius: 50%; background: var(--board); display: block; }
+  .boards i.off { background: transparent; box-shadow: inset 0 0 0 1.5px rgba(244, 251, 248, .3); }
+  .bar { width: 110px; height: 8px; border-radius: 4px; background: rgba(244, 251, 248, .15); overflow: hidden; }
+  .fill { height: 100%; width: 100%; background: var(--shallow); }
+  .arms.tired .fill { background: var(--coral); }
+  .status { font-weight: 700; font-size: 14px; }
+  .sub { font-family: "DM Mono", ui-monospace, monospace; font-size: 12px; opacity: .75; font-variant-numeric: tabular-nums; }
+  .ridepts { font-family: "DM Mono", ui-monospace, monospace; color: var(--board); font-variant-numeric: tabular-nums; }
+  .coach {
+    position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 118px); transform: translateX(-50%);
+    width: max-content; max-width: calc(100% - 32px); box-sizing: border-box;
+    display: flex; align-items: center; gap: 10px; pointer-events: none;
+    background: rgba(8, 33, 45, .82); border: 1.5px solid rgba(255, 196, 61, .55);
+    border-radius: 999px; padding: 8px 18px 8px 8px; font-weight: 700; font-size: 16px;
+  }
+  .coach .n {
+    flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--board); color: var(--ink); font-family: "DM Mono", ui-monospace, monospace; font-size: 14px;
+  }
+  .coach.hot { border-color: var(--board); background: rgba(255, 196, 61, .95); color: var(--ink); }
+  .coach.hot .n { background: var(--ink); color: var(--board); }
+  .arms.boost .fill { background: var(--board); box-shadow: 0 0 10px var(--board); }
+  @media (min-width: 700px) { .coach { top: calc(env(safe-area-inset-top, 0px) + 72px); } }
+  .cue {
+    position: fixed; left: 50%; top: 46%; transform: translate(-50%, -50%);
+    width: max-content; max-width: calc(100% - 32px); text-align: center; pointer-events: none;
+    font-family: Shrikhand, Georgia, serif; font-size: clamp(30px, 7vw, 54px); line-height: 1.05;
+    color: var(--foam); text-shadow: 0 3px 0 rgba(8, 33, 45, .7), 0 0 24px rgba(8, 33, 45, .5);
+  }
+  .cue small { display: block; font-family: Karla, system-ui, sans-serif; font-weight: 700; font-size: 15px; letter-spacing: .04em; margin-top: 6px; }
+  .cue.go { color: var(--board); animation: throb .45s ease-in-out infinite alternate; }
+  @keyframes throb { from { transform: translate(-50%, -50%) scale(1); } to { transform: translate(-50%, -50%) scale(1.1); } }
+  .badge {
+    position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 150px); transform: translateX(-50%);
+    width: max-content; max-width: calc(100% - 32px); pointer-events: none;
+    background: var(--board); color: var(--ink); border-radius: 14px; padding: 8px 16px;
+    display: flex; align-items: center; gap: 10px; box-shadow: 0 6px 0 #C98E12, 0 12px 30px rgba(0,0,0,.3);
+    opacity: 0;
+  }
+  .badge .k { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; opacity: .7; }
+  .badge .t { font-family: Shrikhand, Georgia, serif; font-size: 20px; }
+  .badge.show { animation: badge 2.2s ease-out forwards; }
+  @keyframes badge { 0% { opacity: 0; transform: translate(-50%, 30px); } 12% { opacity: 1; transform: translate(-50%, 0); } 82% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -10px); } }
+  @media (prefers-reduced-motion: reduce) { .cue.go { animation: none; } }
+  .keys { position: fixed; left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); font-size: 12px; opacity: .7; pointer-events: none; }
+
+  kbd {
+    font-family: "DM Mono", ui-monospace, monospace; font-size: 11.5px;
+    background: rgba(244, 251, 248, .12); border-radius: 5px; padding: 1px 6px;
+    border-bottom: 2px solid rgba(244, 251, 248, .22);
+  }
+
+  .toast {
+    position: fixed; left: 50%; top: 30%; transform: translate(-50%, -50%);
+    width: max-content; max-width: calc(100% - 32px); text-align: center;
+    font-family: Shrikhand, Georgia, serif; font-size: clamp(22px, 4.4vw, 36px); line-height: 1.15;
+    color: var(--foam); text-shadow: 0 2px 0 rgba(8, 33, 45, .65), 0 0 20px rgba(8, 33, 45, .45);
+    opacity: 0; pointer-events: none;
+  }
+  .toast.good { color: var(--board); }
+  .toast.bad { color: #FF9A8F; }
+  .toast.show { animation: pop 1.8s ease-out forwards; }
+  @keyframes pop {
+    0% { opacity: 0; transform: translate(-50%, -30%) scale(.92); }
+    12% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    75% { opacity: 1; }
+    100% { opacity: 0; transform: translate(-50%, -75%); }
+  }
+
+  .overlay {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    padding: 24px 16px;
+    background: linear-gradient(180deg, rgba(10, 51, 71, .15), rgba(10, 51, 71, .72));
+  }
+  .card {
+    width: 100%; max-width: 460px; max-height: 100%; overflow: auto; box-sizing: border-box;
+    background: rgba(8, 33, 45, .84); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(244, 251, 248, .12); border-radius: 20px;
+    padding: 26px 24px 24px; box-shadow: 0 24px 60px rgba(0, 0, 0, .35);
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .kicker { font-family: "DM Mono", ui-monospace, monospace; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--shallow); margin: 0; }
+  h1, h2 {
+    font-family: Shrikhand, Georgia, serif; font-weight: 400; margin: 0;
+    color: var(--board); text-shadow: 3px 3px 0 var(--coral); text-wrap: balance;
+  }
+  h1 { font-size: clamp(46px, 12vw, 66px); line-height: .95; }
+  h2 { font-size: clamp(34px, 9vw, 46px); line-height: 1; }
+  .lede { margin: 0; opacity: .85; }
+  ol.steps { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; }
+  ol.steps li::marker { font-family: "DM Mono", ui-monospace, monospace; color: var(--board); }
+  ol.steps b { color: var(--foam); }
+  .hazards { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: rgba(244, 251, 248, .08); }
+  .tag b { color: #FF9A8F; font-weight: 700; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+  .hint { font-size: 12.5px; opacity: .7; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { background: rgba(244, 251, 248, .06); border-radius: 12px; padding: 10px; }
+  .stat .v { font-family: "DM Mono", ui-monospace, monospace; font-size: 22px; color: var(--board); font-variant-numeric: tabular-nums; }
+  button.go {
+    appearance: none; border: 0; cursor: pointer;
+    background: var(--board); color: var(--ink);
+    font: 700 16px Karla, system-ui, sans-serif;
+    padding: 12px 24px; border-radius: 999px; box-shadow: 0 3px 0 #C98E12;
+    transition: transform .12s ease;
+  }
+  button.go:hover { transform: translateY(-1px); }
+  button.go:active { transform: translateY(2px); box-shadow: 0 1px 0 #C98E12; }
+  button:focus-visible { outline: 3px solid var(--foam); outline-offset: 3px; }
+
+  .touch { position: fixed; left: 0; right: 0; bottom: 0; padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 16px); display: flex; justify-content: space-between; align-items: flex-end; pointer-events: none; }
+  .dpad { display: grid; grid-template-columns: repeat(3, 54px); grid-template-rows: repeat(3, 54px); gap: 4px; pointer-events: auto; }
+  .touch button {
+    appearance: none; border: 0; border-radius: 14px; touch-action: none;
+    background: rgba(8, 33, 45, .55); color: var(--foam); font: 700 18px Karla, sans-serif;
+    box-shadow: inset 0 0 0 1.5px rgba(244, 251, 248, .18);
+  }
+  .touch button.on { background: rgba(72, 191, 178, .55); }
+  .dpad .u { grid-column: 2; grid-row: 1; }
+  .dpad .l { grid-column: 1; grid-row: 2; }
+  .dpad .r { grid-column: 3; grid-row: 2; }
+  .dpad .d { grid-column: 2; grid-row: 3; }
+  #actBtn { width: 92px; height: 92px; border-radius: 50%; pointer-events: auto; font-size: 15px; background: rgba(255, 196, 61, .82); color: var(--ink); }
+  #actBtn.on { background: var(--board); }
+  #jumpBtn { width: 66px; height: 66px; border-radius: 50%; pointer-events: auto; font-size: 14px; }
+  #danceBtn { width: 66px; height: 66px; border-radius: 50%; pointer-events: auto; font-size: 14px; }
+  #diveBtn { width: 66px; height: 66px; border-radius: 50%; pointer-events: auto; font-size: 14px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toast.show { animation-duration: 2.2s; }
+    @keyframes pop { 0%, 85% { opacity: 1; transform: translate(-50%, -50%); } 100% { opacity: 0; transform: translate(-50%, -50%); } }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="game" aria-label="Surf game: top-down view of a surf break"></canvas>
+
+<div class="hud" id="hud" hidden>
+  <div class="hud-group">
+    <div class="chip"><span class="label">Score</span><span class="score" id="score">0</span></div>
+    <div class="chip"><span class="label">Boards</span><span class="boards" id="boards"><i></i><i></i><i></i></span></div>
+    <div class="chip"><span class="label">Finish</span><span class="score" id="fin" style="font-size:18px">0/3</span></div>
+    <div class="chip arms" id="arms"><span class="label">Arms</span><div class="bar"><div class="fill" id="stam"></div></div></div>
+  </div>
+  <div class="chip" style="flex-direction:column;align-items:flex-end;gap:0">
+    <span class="status" id="status">Paddle to the peak</span>
+    <span class="sub" id="sub">Swell 4 ft</span>
+  </div>
+</div>
+
+<div class="keys" id="keys" hidden><kbd>←↑↓→</kbd> or <kbd>WASD</kbd> paddle &amp; steer · <kbd>Space</kbd> catch the wave (stand up) / kick out · <kbd>Shift</kbd> duck dive · <kbd>X</kbd> jump (hold ← → to spin) · <kbd>Z</kbd> dance · <kbd>P</kbd> pause</div>
+
+<div class="coach" id="coach" hidden><span class="n" id="coachN">1</span><span id="coachT">Paddle to the peak</span></div>
+
+<div class="cue" id="cue" hidden></div>
+<div class="badge" id="badge"><span class="k">Reward</span><span class="t" id="badgeT"></span></div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="overlay" id="intro">
+  <div class="card">
+    <p class="kicker">Dawn session · Weligama Bay, Sri Lanka</p>
+    <h1>Paddle Out</h1>
+    <p class="lede">Warm water, palm trees, and the oruwa fishing boats are back on their moorings. The sets are rolling in, so grab your longboard and get out there before the wind turns.</p>
+    <ol class="steps">
+      <li><b>Paddle ↑ out to the peak buoy.</b> Duck dive under the whitewater with <kbd>Shift</kbd>. Grab king coconuts on the way for extra paddle power.</li>
+      <li><b>Wait at the peak</b> until a wave comes.</li>
+      <li><b>Turn around ↓ and paddle back toward the beach</b> as the wave reaches you. A yellow circle fills up.</li>
+      <li><b>When the wave reaches you, press <kbd>Space</kbd></b>: you stand up and take the wave.</li>
+      <li><b>Ride all the way to the FINISH line</b> near the beach. Cross it 3 times to win the session. Grab blue Ceylon sapphires on the wave for bonus points.</li>
+      <li><b>Show off!</b> While riding, press <kbd>X</kbd> to jump with the board (hold ← or → in the air to spin a 360) and <kbd>Z</kbd> to dance on the board.</li>
+      <li><b>Ride the shoulder</b> away from the curl. Stay in the pocket for double points; carve back for a cutback.</li>
+    </ol>
+    <div class="hazards">
+      <span class="tag" style="color:var(--board)">King coconuts = paddle power</span>
+      <span class="tag"><b>Reef rocks</b> cost a board</span>
+      <span class="tag"><b>Riders</b> won’t stop for you</span>
+      <span class="tag"><b>Don’t drop in</b> on someone’s wave</span>
+      <span class="tag"><b>Fishing boats</b> are moored in the bay</span>
+      <span class="tag"><b>Jellyfish</b> drain your arms</span>
+    </div>
+    <div class="row">
+      <button class="go" id="startBtn">Paddle out</button>
+      <span class="hint" id="bestIntro"></span>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="over" hidden>
+  <div class="card">
+    <p class="kicker" id="oKick">Out of boards</p>
+    <h2 id="oTitle">Session over</h2>
+    <div class="stats">
+      <div class="stat"><div class="label">Score</div><div class="v" id="oScore">0</div></div>
+      <div class="stat"><div class="label">Waves</div><div class="v" id="oWaves">0</div></div>
+      <div class="stat"><div class="label">Best ride</div><div class="v" id="oBest">0</div></div>
+    </div>
+    <p class="lede" id="oLine"></p>
+    <div class="row"><button class="go" id="againBtn">Paddle back out</button></div>
+  </div>
+</div>
+
+<div class="overlay" id="pause" hidden>
+  <div class="card" style="max-width:320px;align-items:flex-start">
+    <h2>Paused</h2>
+    <p class="lede">Floating in the warm Indian Ocean. Press <kbd>P</kbd> or the button to keep surfing.</p>
+    <button class="go" id="resumeBtn">Resume</button>
+  </div>
+</div>
+
+<div class="touch" id="touch" hidden>
+  <div class="dpad">
+    <button class="u" data-k="u" aria-label="Paddle out">▲</button>
+    <button class="l" data-k="l" aria-label="Left">◀</button>
+    <button class="r" data-k="r" aria-label="Right">▶</button>
+    <button class="d" data-k="d" aria-label="Toward shore">▼</button>
+  </div>
+  <div style="display:flex;gap:10px;align-items:flex-end;pointer-events:none">
+    <button id="danceBtn" data-k="dance" hidden>Dance</button>
+    <button id="jumpBtn" data-k="jump" hidden>Jump</button>
+    <button id="diveBtn" data-k="dive">Dive</button>
+    <button id="actBtn" data-k="act">Stand up</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const cv = document.getElementById('game');
+  const ctx = cv.getContext('2d');
+  const $ = id => document.getElementById(id);
+
+  // ---- World constants (1 unit = 10 cm) ----
+  const WORLD_W = 1400, PEAK_Y = 1500, FINISH_Y = 460, GOAL = 3, FACE = 70, U2M = 0.1;
+  const PI = Math.PI;
+
+  let DPR = 1, CW = 0, CH = 0, S = 1, VW = 0, VH = 0;
+  function resize() {
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    CW = cv.clientWidth; CH = cv.clientHeight;
+    cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
+    S = CH / 820;
+    if (CW / S > 1300) S = CW / 1300;
+    if (CW / S < 420) S = CW / 420;
+    VW = CW / S; VH = CH / S;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const R = (a, b) => a + Math.random() * (b - a);
+  const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+  const hash = (x, y) => { const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return h - Math.floor(h); };
+  const angDiff = (a, b) => ((b - a + PI) % (2 * PI) + 2 * PI) % (2 * PI) - PI;
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+
+  // ---- Input ----
+  const keys = {};
+  let actPressed = false, divePressed = false, dancePressed = false, jumpPressed = false;
+  const KEYMAP = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', Space: 'act', ShiftLeft: 'dive', ShiftRight: 'dive', KeyZ: 'dance', KeyX: 'jump' };
+  window.addEventListener('keydown', e => {
+    if ((G.mode === 'title' || G.mode === 'over') && (e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); startGame(); return; }
+    if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
+    const k = KEYMAP[e.code];
+    if (k) { e.preventDefault(); if (k === 'act' && !keys.act) actPressed = true; if (k === 'dive' && !keys.dive) divePressed = true; if (k === 'dance' && !keys.dance) dancePressed = true; if (k === 'jump' && !keys.jump) jumpPressed = true; keys[k] = true; }
+  });
+  window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) keys[k] = false; });
+  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+  const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  document.querySelectorAll('.touch [data-k]').forEach(btn => {
+    const k = btn.dataset.k;
+    const on = e => { e.preventDefault(); if (k === 'act' && !keys.act) actPressed = true; if (k === 'dive' && !keys.dive) divePressed = true; if (k === 'dance' && !keys.dance) dancePressed = true; if (k === 'jump' && !keys.jump) jumpPressed = true; keys[k] = true; btn.classList.add('on'); try { btn.setPointerCapture(e.pointerId); } catch (_) {} };
+    const off = () => { keys[k] = false; btn.classList.remove('on'); };
+    btn.addEventListener('pointerdown', on);
+    btn.addEventListener('pointerup', off);
+    btn.addEventListener('pointercancel', off);
+    btn.addEventListener('lostpointercapture', off);
+  });
+
+  // ---- Best score ----
+  let best = 0;
+  try { best = +localStorage.getItem('paddleout-best') || 0; } catch (_) {}
+  const saveBest = () => { try { localStorage.setItem('paddleout-best', String(best)); } catch (_) {} };
+  if (best) $('bestIntro').textContent = `Your best session: ${best}`;
+
+  // ---- Toast ----
+  const toastEl = $('toast');
+  let toastTimer = 0;
+  function toast(msg, kind = '') {
+    toastEl.textContent = msg;
+    toastEl.className = 'toast ' + kind;
+    void toastEl.offsetWidth;
+    toastEl.className = 'toast show ' + kind;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.className = 'toast ' + kind; }, 1900);
+  }
+
+  // ---- Game state ----
+  let G, camX = 700, camY = 1100, waveId = 0, paused = false;
+  const SUITS = ['#F4F1E8', '#2A2F3A', '#6BC4E8', '#9A7BE0', '#F29E4C', '#7FD08A'];
+  const BOARDS = ['#FFFFFF', '#E85D75', '#F7F3E3', '#46B1C9', '#EFE3C2', '#FF8A5B'];
+
+  function makeWave(ft, px) {
+    return {
+      id: ++waveId, ft, peakX: px + R(-30, 30), y: PEAK_Y + 720,
+      breakY: PEAK_Y - 35 + R(-15, 10),
+      state: 'swell', bL: 0, bR: 0, peel: 32 + ft * 6, power: 1,
+      speed: 105 + (ft - 4) * 4,
+      hitP: false, hitAI: new Set(), decided: new Set(), aiRider: null, pRider: false,
+    };
+  }
+  function placeNut(n) {
+    for (let k = 0; k < 50; k++) {
+      n.x = R(80, WORLD_W - 80); n.y = R(180, PEAK_Y - 120); n.ph = R(0, 6.3); n.gone = 0;
+      const clear = (!G || (G.rocks.every(r => Math.hypot(r.x - n.x, r.y - n.y) > r.r + 40) && G.boats.every(b => Math.hypot(b.x - n.x, b.y - n.y) > 60)));
+      if (clear) break;
+    }
+    return n;
+  }
+  function newTarget(s) { s.tx = clamp(700 + R(-330, 330), 80, WORLD_W - 80); s.ty = PEAK_Y + R(-30, 90); }
+
+  function newGame(mode) {
+    G = {
+      mode, t: 0, score: 0, lives: 3, waves: [], surfers: [], rocks: [], jellies: [], boats: [], nuts: [], parts: [],
+      setTimer: 3.5, queue: [], ridden: 0, bestRide: 0, rideScore: 0, rideT: 0, mult: 1, shake: 0,
+      peak: { x: 700, y: PEAK_Y, ft: 4, until: 0 }, catchable: null, incoming: null, canTake: null, prevInc: null,
+      tutorial: true, dances: 0, finishes: 0, gems: [], gemCombo: 0, gemsRide: 0, nutsGot: 0, dives: 0, badges: new Set(), badgeQ: [], badgeT: 0,
+    };
+    G.p = { x: 720, y: 70, a: 0, v: 0, st: 100, tired: false, diveT: 0, diveCd: 0, push: 0, inv: 0,
+            catch: 0, wave: null, d: 0, stroke: 0, trail: [], trailT: 0, lastDir: 0, cutCd: 0, tube: 0,
+            tubeCalled: false, boost: 0, wantStand: 0, popT: 0, airT: 0, spin: 0, danceT: 0, danceMove: '', danceIdx: 0, tricksRide: 0, wasAtPeak: false, wipeT: 0, spin: 0, jellyCd: 0, bumpCd: 0 };
+
+    let tries = 0;
+    while (G.rocks.length < 8 && tries++ < 400) {
+      const r = { x: R(70, WORLD_W - 70), y: R(260, 1320), r: R(16, 32) };
+      if (Math.hypot(r.x - 720, r.y - 70) < 240) continue;
+      if (Math.abs(r.x - 700) < 280 && r.y > 1160) continue;
+      if (G.rocks.some(o => Math.hypot(o.x - r.x, o.y - r.y) < o.r + r.r + 110)) continue;
+      r.pts = Array.from({ length: 9 }, (_, i) => { const an = i / 9 * 2 * PI; const rr = r.r * R(0.72, 1.1); return [Math.cos(an) * rr, Math.sin(an) * rr]; });
+      G.rocks.push(r);
+    }
+    tries = 0;
+    while (G.boats.length < 3 && tries++ < 400) {
+      const b = { x: R(100, WORLD_W - 100), y: R(230, 760), a: R(-0.35, 0.35), col: ['#2F6FB5', '#3A8FC9', '#1F5E9E'][G.boats.length], side: Math.random() < 0.5 ? -1 : 1 };
+      if (Math.hypot(b.x - 720, b.y - 70) < 260) continue;
+      if (G.rocks.some(o => Math.hypot(o.x - b.x, o.y - b.y) < o.r + 90)) continue;
+      if (G.boats.some(o => Math.hypot(o.x - b.x, o.y - b.y) < 180)) continue;
+      G.boats.push(b);
+    }
+    for (let i = 0; i < 6; i++) G.nuts.push(placeNut({}));
+    for (let i = 0; i < 5; i++) G.jellies.push({ x: R(100, WORLD_W - 100), y: R(450, 1300), ph: R(0, 6.3) });
+    for (let i = 0; i < 6; i++) {
+      const s = { x: 0, y: 0, a: 0, v: 0, state: 'out', push: 0, suit: SUITS[i], board: BOARDS[i], dir: 1, wave: null, bob: R(0, 6), stroke: R(0, 6) };
+      newTarget(s);
+      if (i < 3) { s.x = s.tx; s.y = s.ty; s.state = 'sit'; }
+      else { s.x = R(120, WORLD_W - 120); s.y = R(180, 950); }
+      G.surfers.push(s);
+    }
+    let w = makeWave(4, 700); w.y = 1220; w.state = 'breaking'; w.bL = 560; w.bR = 840; G.waves.push(w);
+    w = makeWave(5, 720); w.y = 740; w.state = 'breaking'; w.bL = 150; w.bR = 1250; G.waves.push(w);
+  }
+
+  function startGame() {
+    newGame('paddle');
+    $('intro').hidden = true; $('over').hidden = true; $('pause').hidden = true; paused = false;
+    $('hud').hidden = false; $('coach').hidden = false; $('touch').hidden = !coarse; $('keys').hidden = coarse;
+    camX = G.p.x; camY = G.p.y + 300;
+    
+  }
+  function gameOver(won) {
+    G.mode = 'over';
+    $('oKick').textContent = won ? `${GOAL} finish lines crossed` : 'Out of boards';
+    $('oTitle').textContent = won ? 'You won the session!' : 'Session over';
+    $('cue').hidden = true;
+    if (G.score > best) { best = G.score; saveBest(); }
+    $('oScore').textContent = G.score; $('oWaves').textContent = G.ridden; $('oBest').textContent = G.bestRide;
+    $('oLine').textContent = (won ? 'Weligama is yours today. ' : '') + (G.score >= best && G.score > 0 ? 'New best session. The locals are talking about you.' : `Best session so far: ${best}.`);
+    $('over').hidden = false; $('coach').hidden = true; $('touch').hidden = true; $('keys').hidden = true;
+    setTimeout(() => $('againBtn').focus(), 50);
+  }
+  function togglePause() {
+    if (G.mode === 'title' || G.mode === 'over' || G.mode === 'won') return;
+    paused = !paused; $('pause').hidden = !paused;
+    if (paused) $('resumeBtn').focus();
+  }
+  $('startBtn').addEventListener('click', startGame);
+  $('againBtn').addEventListener('click', startGame);
+  $('resumeBtn').addEventListener('click', togglePause);
+  document.addEventListener('visibilitychange', () => { if (document.hidden && !paused && G.mode !== 'title' && G.mode !== 'over') togglePause(); });
+
+  // ---- Helpers ----
+  function award(name, pts) {
+    if (G.badges.has(name)) return;
+    G.badges.add(name); G.score += pts; G.badgeQ.push(`${name} +${pts}`);
+  }
+  function confetti(x, y) {
+    const cols = ['#FFC43D', '#F2615A', '#48BFB2', '#F4FBF8', '#9A7BE0', '#3A8FC9'];
+    for (let i = 0; i < 70; i++) {
+      const an = R(0, 2 * PI), v = R(60, 260);
+      G.parts.push({ x, y, vx: Math.cos(an) * v, vy: Math.sin(an) * v, life: R(0.8, 1.6), t: 0, r: R(2, 4), col: cols[i % cols.length] });
+    }
+  }
+  const atPeak = () => G.mode === 'paddle' && G.p.y > PEAK_Y - 90 && Math.abs(G.p.x - G.peak.x) < 220;
+  const boatPts = b => [-26, -9, 9, 26].map(o => ({ x: b.x + Math.sin(b.a) * o, y: b.y + Math.cos(b.a) * o }));
+  const covers = (w, x) => w.state === 'white' || (w.state === 'breaking' && x > w.bL - 10 && x < w.bR + 10);
+  function splash(x, y, n, spd = 90) {
+    for (let i = 0; i < n; i++) {
+      const an = R(0, 2 * PI), v = R(20, spd);
+      G.parts.push({ x, y, vx: Math.cos(an) * v, vy: Math.sin(an) * v, life: R(0.35, 0.8), t: 0, r: R(1.2, 3) });
+    }
+  }
+
+  // ---- Sets & waves ----
+  function updateWaves(dt) {
+    G.setTimer -= dt;
+    if (atPeak() && !G.queue.length && !G.waves.some(w => w.state === 'swell')) G.setTimer = Math.min(G.setTimer, 2.5);
+    if (G.setTimer <= 0) {
+      const ft = Math.round(R(3, 6) + Math.min(3, G.ridden * 0.35));
+      const px = 700 + R(-50, 50);
+      const n = 2 + Math.floor(R(0, 2.99));
+      for (let i = 0; i < n; i++) G.queue.push({ delay: i * 3.3, ft, px });
+      G.setTimer = R(9, 13) + n * 1.5;
+      G.peak = { x: px, y: PEAK_Y, ft, until: G.t + n * 3.3 + 9 };
+      if (G.mode === 'paddle' && G.p.y > PEAK_Y - 500) toast(`Set on the horizon · ${ft} ft`);
+    }
+    for (let i = G.queue.length - 1; i >= 0; i--) {
+      const q = G.queue[i]; q.delay -= dt;
+      if (q.delay <= 0) { G.waves.push(makeWave(q.ft, q.px)); G.queue.splice(i, 1); }
+    }
+    for (const w of G.waves) {
+      w.y -= w.speed * dt;
+      if (w.state === 'swell' && w.y <= w.breakY) { w.state = 'breaking'; w.bL = w.bR = w.peakX; }
+      if (w.state === 'breaking') {
+        w.bL -= w.peel * dt; w.bR += w.peel * dt;
+        if (w.y < 350 || (w.bL <= 0 && w.bR >= WORLD_W)) w.state = 'white';
+      }
+      if (w.state === 'white') w.power = clamp(w.y / 900, 0.3, 1);
+    }
+    G.waves = G.waves.filter(w => w.y > -30);
+  }
+
+  // ---- Other surfers ----
+  function updateSurfers(dt) {
+    for (const s of G.surfers) {
+      s.bob += dt;
+      if (s.state === 'sit') {
+        s.a += clamp(angDiff(s.a, 0), -2 * dt, 2 * dt);
+        for (const w of G.waves) {
+          if (w.state === 'white' || w.aiRider || w.decided.has(s)) continue;
+          const d = w.y - s.y;
+          if (d > 0 && d < 40) {
+            w.decided.add(s);
+            const ok = w.state === 'swell'
+              ? Math.abs(s.x - w.peakX) < 170
+              : !(s.x > w.bL && s.x < w.bR) && Math.min(Math.abs(s.x - w.bL), Math.abs(s.x - w.bR)) < 150;
+            if (ok && Math.random() < (w.pRider ? 0.22 : 0.55)) {
+              s.state = 'ride'; s.wave = w; w.aiRider = s;
+              s.dir = w.state === 'breaking' ? (s.x >= w.bR ? 1 : -1) : (Math.sign(s.x - w.peakX) || (Math.random() < 0.5 ? -1 : 1));
+              if (w.pRider) toast('Someone’s dropping in on you!', 'bad');
+              break;
+            }
+          }
+        }
+      }
+      if (s.state === 'ride') {
+        const w = s.wave;
+        if (!w || w.state === 'white' || w.y < 420 || s.x < 30 || s.x > WORLD_W - 30) {
+          s.state = 'out'; if (w && w.aiRider === s) w.aiRider = null; s.wave = null; s.v = 20; newTarget(s);
+        } else {
+          s.y = w.y - 26; s.x += s.dir * (w.peel + 60) * dt;
+          s.a += clamp(angDiff(s.a, s.dir * (PI / 2 + 0.45)), -6 * dt, 6 * dt);
+          if (Math.random() < 0.6) G.parts.push({ x: s.x - s.dir * 12, y: s.y + 4, vx: -s.dir * R(20, 60), vy: R(10, 50), life: 0.4, t: 0, r: R(1, 2.2) });
+        }
+        continue;
+      }
+      if (s.state === 'out') {
+        const dx = s.tx - s.x, dy = s.ty - s.y;
+        s.a += clamp(angDiff(s.a, Math.atan2(dx, dy)), -3 * dt, 3 * dt);
+        s.v += (46 - s.v) * 2 * dt;
+        s.stroke += dt * 6;
+        s.x += Math.sin(s.a) * s.v * dt;
+        s.y += Math.cos(s.a) * s.v * dt;
+        if (Math.hypot(dx, dy) < 18) s.state = 'sit';
+      }
+      s.y -= s.push * dt; s.push -= s.push * 3 * dt;
+      for (const r of G.rocks) {
+        const dx = s.x - r.x, dy = s.y - r.y, d = Math.hypot(dx, dy) || 1;
+        if (d < r.r + 30) { s.x += dx / d * 60 * dt; s.y += dy / d * 20 * dt; }
+      }
+      for (const b of G.boats) for (const c of boatPts(b)) {
+        const dx = s.x - c.x, dy = s.y - c.y, d = Math.hypot(dx, dy) || 1;
+        if (d < 34) { s.x += dx / d * 60 * dt; s.y += dy / d * 20 * dt; }
+      }
+      for (const w of G.waves) {
+        if (covers(w, s.x) && !w.hitAI.has(s) && s.y > w.y - 20 && s.y < w.y + 4) {
+          w.hitAI.add(s); s.push = 150 * w.power; s.state = 'out';
+        }
+      }
+      s.x = clamp(s.x, 20, WORLD_W - 20); s.y = Math.max(20, s.y);
+    }
+  }
+
+  function updateJellies(dt) {
+    for (const j of G.jellies) {
+      j.x += Math.sin(G.t * 0.3 + j.ph) * 9 * dt;
+      j.y += Math.cos(G.t * 0.22 + j.ph) * 7 * dt;
+      j.x = clamp(j.x, 40, WORLD_W - 40); j.y = clamp(j.y, 400, 1350);
+    }
+  }
+
+  // ---- Player: paddling ----
+  function updatePaddle(dt) {
+    const p = G.p;
+    const ix = (keys.r ? 1 : 0) - (keys.l ? 1 : 0), iy = (keys.u ? 1 : 0) - (keys.d ? 1 : 0);
+    const want = ix !== 0 || iy !== 0;
+    if (want) p.a += clamp(angDiff(p.a, Math.atan2(ix, iy)), -5.5 * dt, 5.5 * dt);
+    if (p.st <= 0 && !p.tired) { p.tired = true; toast('Arms are cooked. Rest a sec', 'bad'); }
+    if (p.tired && p.st >= 35) p.tired = false;
+    const paddling = want && p.diveT <= 0;
+    p.boost -= dt;
+    if (paddling) { p.v += (p.boost > 0 ? 300 : p.tired ? 70 : 190) * dt; if (p.boost <= 0) p.st = Math.max(0, p.st - 6 * dt); p.stroke += dt * (p.tired ? 4 : 7.5); }
+    else p.st = Math.min(100, p.st + 15 * dt);
+    p.v -= p.v * 1.8 * dt;
+    p.x += Math.sin(p.a) * p.v * dt;
+    p.y += Math.cos(p.a) * p.v * dt - p.push * dt;
+    p.push -= p.push * 3 * dt;
+
+    p.x = clamp(p.x, 20, WORLD_W - 20); p.y = clamp(p.y, 6, PEAK_Y + 520);
+
+    for (const n of G.nuts) {
+      if (n.gone > 0) { n.gone -= dt; if (n.gone <= 0) placeNut(n); continue; }
+      if (Math.hypot(p.x - n.x, p.y - n.y) < 20) {
+        n.gone = 8; p.st = 100; p.tired = false; p.boost = 6; G.score += 20; if (++G.nutsGot === 3) award('Coconut crew', 60);
+        splash(n.x, n.y, 14, 70); toast('King coconut! Super paddle power', 'good');
+      }
+    }
+    const nowAtPeak = atPeak();
+    if (nowAtPeak && !p.wasAtPeak) toast('You made it to the peak!', 'good');
+    p.wasAtPeak = nowAtPeak;
+
+    // Whitewater
+    for (const w of G.waves) {
+      if (w.hitP || !covers(w, p.x)) continue;
+      if (p.y > w.y - 20 && p.y < w.y + 5) {
+        w.hitP = true;
+        if (p.diveT > 0) { G.score += 10; toast('Clean duck dive +10', 'good'); if (++G.dives === 3) award('Duck dive pro', 50); }
+        else {
+          p.push = 210 * w.power * (0.6 + w.ft / 10); p.st = Math.max(0, p.st - 14); p.v *= 0.3;
+          G.shake = 0.3; splash(p.x, p.y, 18, 120); toast('Caught inside!', 'bad');
+        }
+      }
+    }
+
+    // Catching a wave
+    const facingShore = Math.cos(p.a) < -0.35;
+    let cand = null;
+    for (const w of G.waves) {
+      if (w.state === 'white') continue;
+      const d = w.y - p.y;
+      if (d < -12 || d > 60) continue;
+      let ok;
+      if (w.state === 'swell') ok = Math.abs(p.x - w.peakX) < 200;
+      else ok = !(p.x > w.bL && p.x < w.bR) && Math.min(Math.abs(p.x - w.bL), Math.abs(p.x - w.bR)) < 180;
+      if (ok) { cand = w; break; }
+    }
+    G.catchable = cand;
+    G.incoming = null;
+    for (const w of G.waves) {
+      if (w.state === 'white' || w.pRider) continue;
+      const d = w.y - p.y;
+      if (d > -12 && d < 380 && (w.state === 'swell' ? Math.abs(p.x - w.peakX) < 260 : !(p.x > w.bL && p.x < w.bR))) { G.incoming = w; break; }
+    }
+    const pi = G.prevInc;
+    if (pi && pi !== G.incoming && !pi.pRider && pi.y < p.y - 20 && pi.state !== 'white') toast(G.tutorial ? 'Missed it! Next wave: paddle when it says PADDLE NOW' : 'Missed that one', 'bad');
+    G.prevInc = G.incoming;
+    if (cand && facingShore && paddling && p.v > 45) p.catch = Math.min(0.5, p.catch + dt);
+    else p.catch = Math.max(0, p.catch - dt * 1.5);
+    const ready = cand && p.catch >= 0.5;
+    if (cand && !p.readyCalled) { p.readyCalled = true; toast('Now! Press Space to stand up', 'good'); }
+    if (!cand) p.readyCalled = false;
+    // Space = stand up whenever a wave is at you (a press just before it arrives is remembered)
+    let take = null;
+    for (const w of G.waves) {
+      if (w.state === 'white' || w.pRider) continue;
+      const d = w.y - p.y;
+      if (d < -25 || d > 75) continue;
+      if (w.state === 'breaking' && p.x > w.bL + 15 && p.x < w.bR - 15) continue;
+      if (w.state === 'swell' && Math.abs(p.x - w.peakX) > 280) continue;
+      take = w; break;
+    }
+    G.canTake = take;
+    if (divePressed && p.diveCd <= 0 && p.st >= 6) { p.diveT = 0.75; p.diveCd = 1.25; p.st -= 6; splash(p.x, p.y, 8, 50); }
+    p.wantStand -= dt;
+    if (actPressed) {
+      if (take) { p.readyCalled = false; return startRide(take); }
+      if (G.incoming) { p.wantStand = 1.2; toast('Get ready…'); }
+      else toast('No wave here yet · Shift to dive');
+    } else if (p.wantStand > 0 && take) { p.wantStand = 0; p.readyCalled = false; return startRide(take); }
+  }
+
+  function startRide(w) {
+    const p = G.p;
+    G.mode = 'ride'; p.wave = w; w.pRider = true; G.tutorial = false; G.prevInc = null; G.canTake = null;
+    p.d = clamp(w.y - p.y, 12, FACE * 0.6); p.v = 170; p.catch = 0; p.wantStand = 0; p.popT = 0.5; p.diveT = 0;
+    const s0 = w.state === 'breaking' ? (p.x >= w.bR ? 1 : p.x <= w.bL ? -1 : (p.x > (w.bL + w.bR) / 2 ? 1 : -1)) : (Math.sign(p.x - w.peakX) || 1);
+    if (w.state === 'breaking' && p.x > w.bL && p.x < w.bR) p.x = s0 > 0 ? w.bR + 6 : w.bL - 6;
+    p.a = s0 * (PI / 2 + 0.35);
+    G.gems = []; G.gemCombo = 0; G.gemsRide = 0; p.airT = 0; p.spin = 0; p.danceT = 0; p.tricksRide = 0;
+    for (let i = 0; i < 7; i++) {
+      const gx = p.x + s0 * (110 + i * 75);
+      if (gx < 30 || gx > WORLD_W - 30) break;
+      G.gems.push({ wave: w, x: gx, d: 34 + Math.sin(i * 1.4) * 24, got: false });
+    } p.lastDir = 0; p.tube = 0; p.tubeCalled = false;
+    G.rideScore = 0; G.rideT = 0;
+    splash(p.x, p.y, 14, 90);
+    const ai = w.aiRider;
+    const side = w.state === 'breaking' ? (p.x >= w.bR ? 1 : -1) : (Math.sign(p.x - w.peakX) || 1);
+    if (ai && ai.state === 'ride' && ai.dir === side && (side > 0 ? ai.x < p.x : ai.x > p.x)) {
+      G.score = Math.max(0, G.score - 100);
+      toast('Drop in! That was their wave −100', 'bad');
+    } else toast(`You’re up! Riding a ${w.ft} ft wave`, 'good');
+  }
+
+  // ---- Player: riding ----
+  function updateRide(dt) {
+    const p = G.p, w = p.wave;
+    G.rideT += dt; p.cutCd -= dt;
+    const ix = (keys.r ? 1 : 0) - (keys.l ? 1 : 0), iy = (keys.u ? 1 : 0) - (keys.d ? 1 : 0);
+    if (ix || iy) p.a += clamp(angDiff(p.a, Math.atan2(ix, iy)), -4.2 * dt, 4.2 * dt);
+    // --- tricks ---
+    if (jumpPressed && p.airT <= 0 && p.danceT <= 0) {
+      if (p.v > 110) { p.airT = AIR; p.spin = 0; splash(p.x, p.y, 16, 110); }
+      else toast('Need more speed to jump · drop down the wave ↓', 'bad');
+    }
+    if (p.airT > 0) {
+      if (ix) p.spin += ix * 9 * dt;
+      p.airT -= dt;
+      if (p.airT <= 0) land();
+      if (G.mode !== 'ride') return;
+    }
+    if (dancePressed && p.danceT <= 0 && p.airT <= 0) {
+      const m = DANCES[p.danceIdx++ % DANCES.length];
+      p.danceT = 1.2; p.danceMove = m[0];
+      const pts = m[1] * G.mult; G.rideScore += pts;
+      toast(`${m[0]} +${pts}`, 'good');
+      if (++G.dances === 3) award('Board dancer', 100);
+      trickDone();
+    }
+    if (p.danceT > 0) { p.danceT -= dt; p.v -= 25 * dt; }
+    const ca = Math.cos(p.a), sa = Math.sin(p.a);
+
+    if (w.state === 'white') return endRide('Closeout! Straightened out', 0);
+    let dc, side;
+    if (w.state === 'breaking') {
+      if (p.x >= w.bR) { dc = p.x - w.bR; side = 1; }
+      else if (p.x <= w.bL) { dc = w.bL - p.x; side = -1; }
+      else return wipe('The lip landed on you');
+    } else { dc = Math.abs(p.x - w.peakX) + 40; side = Math.sign(p.x - w.peakX) || 1; }
+
+    const pf = clamp(1 - dc / 260, 0, 1);
+    p.v += (-ca) * 230 * dt + pf * 80 * dt - p.v * 0.28 * dt;
+    if (p.d > FACE * 0.9) p.v -= 140 * dt;
+    p.v = clamp(p.v, 55, 320);
+    p.x += sa * p.v * dt;
+    if (p.airT <= 0) p.d += (-ca) * p.v * dt * 0.45 + 10 * dt;
+    p.d = Math.min(p.d, FACE * 1.6);
+    if (p.d < 0) return endRide('Kicked out over the back', 0);
+    p.y = w.y - p.d;
+    p.x = clamp(p.x, 18, WORLD_W - 18);
+    for (const g of G.gems) {
+      if (g.got || g.wave !== w) continue;
+      if (Math.abs(p.x - g.x) < 20 && Math.abs(p.d - g.d) < 20) {
+        g.got = true; G.gemCombo++; G.gemsRide++;
+        const pts = 40 * G.gemCombo; G.rideScore += pts;
+        splash(p.x, p.y, 10, 80); toast(`Sapphire ×${G.gemCombo} +${pts}`, 'good');
+        if (G.gemsRide === 3) award('Gem hunter', 75);
+        if (G.gemsRide === 7) award('Every last sapphire', 200);
+      }
+    }
+
+    G.mult = dc < 90 ? 2 : 1;
+    if (w.state === 'breaking' && dc < 40 && p.d < FACE * 0.45) {
+      G.mult = 3; p.tube += dt;
+      if (p.tube > 0.8 && !p.tubeCalled) { p.tubeCalled = true; G.rideScore += 150; toast('Tube time! +150', 'good'); award('Tube rider', 100); }
+    }
+    G.rideScore += Math.abs(sa) * p.v * dt * 0.12 * G.mult;
+
+    const dir = Math.abs(sa) > 0.5 ? Math.sign(sa) : 0;
+    if (dir && p.lastDir && dir !== p.lastDir && p.v > 130 && p.cutCd <= 0) { G.rideScore += 60; toast('Cutback +60', 'good'); p.cutCd = 1.2; splash(p.x, p.y, 16, 110); }
+    if (dir) p.lastDir = dir;
+
+    if (p.airT <= 0 && Math.random() < 0.8) G.parts.push({ x: p.x - sa * 14, y: p.y - ca * 14, vx: -sa * R(20, 70) + R(-15, 15), vy: R(10, 60), life: R(0.3, 0.6), t: 0, r: R(1, 2.6) });
+
+    if (actPressed) return endRide('Kicked out', 0);
+    if (p.y <= FINISH_Y) return finishLine();
+    if (w.y < 380) return endRide('Rode it all the way in', 120 + w.ft * 20);
+  }
+
+  const AIR = 0.9;
+  const DANCES = [['Cross-step', 80], ['Hang ten', 120], ['Shaka!', 60]];
+  function trickDone() {
+    if (++G.p.tricksRide === 3) { G.rideScore += 150; award('Trick combo', 100); toast('Trick combo! +150', 'good'); }
+  }
+  function land() {
+    const p = G.p;
+    const turns = Math.abs(p.spin) / (2 * PI), full = Math.round(turns);
+    let pts;
+    if (full >= 1 && Math.abs(turns - full) < 0.22) {
+      pts = 250 * full; toast(`Air ${360 * full}! +${pts}`, 'good'); award('Air 360', 150);
+    } else if (Math.abs(p.spin) < 1.1) {
+      pts = 100; toast('Air! +100', 'good'); award('First air', 80);
+    } else {
+      pts = 20; p.v *= 0.5; toast('Sketchy landing +20', 'bad');
+    }
+    G.rideScore += pts * G.mult; p.spin = 0; G.shake = 0.12;
+    splash(p.x, p.y, 22, 130); trickDone();
+  }
+  function endRide(msg, bonus) {
+    const p = G.p, w = p.wave;
+    if (w) { w.pRider = false; w.hitP = true; }
+    p.wave = null;
+    const pts = Math.round(G.rideScore + bonus);
+    G.score += pts; G.ridden++; G.bestRide = Math.max(G.bestRide, pts);
+    const stars = pts >= 450 ? 3 : pts >= 180 ? 2 : 1;
+    toast(`${'★'.repeat(stars)}${'☆'.repeat(3 - stars)} ${msg} +${pts}`, 'good');
+    G.mode = 'paddle'; p.v = 40; p.push = 0; p.inv = 0.8; p.catch = 0; G.gems = [];
+    award('First wave!', 100);
+    if (stars === 3) award('Three-star ride', 150);
+    if (G.ridden === 5) award('Wave hunter', 150);
+  }
+
+  function finishLine() {
+    const p = G.p;
+    G.finishes++; G.rideScore += 300;
+    confetti(p.x, p.y); G.shake = 0.2;
+    endRide(`FINISH LINE! ${G.finishes}/${GOAL}`, 0);
+    award('Made it to the beach', 150);
+    if (G.finishes >= GOAL) { award('Session champion', 500); setTimeout(() => gameOver(true), 1600); G.mode = 'won'; }
+  }
+
+  function wipe(msg) {
+    const p = G.p;
+    if (p.wave) { p.wave.pRider = false; p.wave.hitP = true; }
+    G.gems = []; p.wave = null; G.lives--; G.mode = 'wipe'; p.wipeT = 1.7; p.v = 0; p.catch = 0; G.rideScore = 0;
+    G.shake = 0.5; splash(p.x, p.y, 30, 150);
+    toast(G.lives > 0 ? `${msg} · board snapped` : msg, 'bad');
+  }
+
+  function updateWipe(dt) {
+    const p = G.p;
+    p.wipeT -= dt; p.spin += dt * 7; p.y = Math.max(6, p.y - 30 * dt);
+    if (p.wipeT <= 0) {
+      if (G.lives <= 0) return gameOver();
+      G.mode = 'paddle'; p.inv = 2; p.a = 0; p.spin = 0; p.st = Math.max(p.st, 50); p.tired = false;
+      for (const r of G.rocks) {
+        const dx = p.x - r.x, dy = p.y - r.y, d = Math.hypot(dx, dy) || 1;
+        if (d < r.r + 40) { p.x = r.x + dx / d * (r.r + 40); p.y = r.y + dy / d * (r.r + 40); }
+      }
+      for (const b of G.boats) if (Math.hypot(p.x - b.x, p.y - b.y) < 55) p.x = clamp(p.x + (p.x > b.x ? 60 : -60), 20, WORLD_W - 20);
+      toast('Fresh board. Back out there', 'good');
+    }
+  }
+
+  function collisions() {
+    const p = G.p;
+    if (p.inv > 0 || (G.mode !== 'paddle' && G.mode !== 'ride') || p.diveT > 0 || (G.mode === 'ride' && p.airT > 0)) return;
+    for (const r of G.rocks) if (Math.hypot(p.x - r.x, p.y - r.y) < r.r + 9) return wipe('Hit the reef');
+    for (const b of G.boats) for (const c of boatPts(b)) if (Math.hypot(p.x - c.x, p.y - c.y) < 15) return wipe('Crashed into a fishing boat');
+    for (const s of G.surfers) {
+      if (dist(p, s) > 20) continue;
+      if (G.mode === 'ride') return wipe('Collided with a surfer');
+      if (p.bumpCd > 0) continue;
+      p.bumpCd = 1.2;
+      const dx = p.x - s.x, dy = p.y - s.y, d = Math.hypot(dx, dy) || 1;
+      p.x += dx / d * 14; p.y += dy / d * 14;
+      if (s.state === 'ride') { G.score = Math.max(0, G.score - 60); p.st = Math.max(0, p.st - 25); p.push = 140; G.shake = 0.3; splash(p.x, p.y, 16); toast('Run over by a rider −60', 'bad'); }
+      else { G.score = Math.max(0, G.score - 15); p.v *= 0.2; toast('Bumped a surfer −15', 'bad'); }
+    }
+    if (p.jellyCd <= 0) for (const j of G.jellies) {
+      if (Math.hypot(p.x - j.x, p.y - j.y) > 17) continue;
+      p.jellyCd = 1.6;
+      if (G.mode === 'ride') { p.v *= 0.6; toast('Jelly!', 'bad'); }
+      else { p.st = Math.max(0, p.st - 30); toast('Jellyfish sting! Arms −30', 'bad'); }
+      break;
+    }
+  }
+
+  // ---- Main update ----
+  function update(dt) {
+    G.t += dt;
+    updateWaves(dt); updateSurfers(dt); updateJellies(dt);
+    const p = G.p;
+    if (G.mode === 'paddle' || G.mode === 'ride' || G.mode === 'wipe') {
+      p.diveT -= dt; p.diveCd -= dt; p.inv -= dt; p.jellyCd -= dt; p.bumpCd -= dt;
+      if (G.mode === 'paddle') updatePaddle(dt);
+      else if (G.mode === 'ride') updateRide(dt);
+      else updateWipe(dt);
+      collisions();
+      p.trailT -= dt;
+      if (p.trailT <= 0 && G.mode !== 'wipe') { p.trailT = 0.04; p.trail.push({ x: p.x, y: p.y }); if (p.trail.length > 26) p.trail.shift(); }
+    }
+    for (const q of G.parts) { q.t += dt; q.x += q.vx * dt; q.y += q.vy * dt; q.vx *= 1 - 2 * dt; q.vy *= 1 - 2 * dt; }
+    G.parts = G.parts.filter(q => q.t < q.life);
+    G.shake = Math.max(0, G.shake - dt);
+    G.badgeT -= dt;
+    if (G.badgeT <= 0 && G.badgeQ.length) {
+      G.badgeT = 2.3; const el = $('badge');
+      $('badgeT').textContent = '★ ' + G.badgeQ.shift();
+      el.className = 'badge'; void el.offsetWidth; el.className = 'badge show';
+    }
+    actPressed = false; divePressed = false; dancePressed = false; jumpPressed = false;
+
+    // Camera
+    let tx, ty;
+    if (G.mode === 'title' || G.mode === 'over') { tx = 700 + Math.sin(G.t * 0.1) * 120; ty = 1150; }
+    else { tx = p.x; ty = p.y + VH * (G.mode === 'ride' ? 0.08 : 0.16); }
+    camX += (tx - camX) * Math.min(1, dt * 3);
+    camY += (ty - camY) * Math.min(1, dt * 3);
+    camX = clamp(camX, VW / 2, WORLD_W - VW / 2);
+    camY = Math.max(camY, VH / 2 - 170);
+  }
+
+  // ---- Rendering ----
+  const sx = x => x - camX + VW / 2;
+  const sy = y => VH / 2 - (y - camY);
+
+  function drawWater() {
+    const g = ctx.createLinearGradient(0, sy(PEAK_Y + 700), 0, sy(0));
+    g.addColorStop(0, '#0A3A5C'); g.addColorStop(0.5, '#0E6680'); g.addColorStop(0.82, '#1FA3A6'); g.addColorStop(1, '#5FD3C4');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, VW, VH);
+
+    // ripples, anchored to the world
+    const cell = 80;
+    const x0 = Math.floor((camX - VW / 2) / cell) - 1, x1 = Math.ceil((camX + VW / 2) / cell) + 1;
+    const y0 = Math.max(0, Math.floor((camY - VH / 2) / cell) - 1), y1 = Math.ceil((camY + VH / 2) / cell) + 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.075)'; ctx.lineWidth = 1.3; ctx.beginPath();
+    for (let cx = x0; cx <= x1; cx++) for (let cy = y0; cy <= y1; cy++) {
+      const h = hash(cx, cy);
+      const X = sx(cx * cell + h * cell), Y = sy(cy * cell + hash(cy, cx) * cell) + Math.sin(G.t * 0.8 + h * 6) * 5;
+      const L = 6 + h * 8;
+      ctx.moveTo(X - L, Y); ctx.quadraticCurveTo(X, Y - 3, X + L, Y);
+    }
+    ctx.stroke();
+
+    // lineup marker
+    const ly = sy(PEAK_Y);
+    if (ly > -20 && ly < VH + 20) {
+      ctx.setLineDash([6, 10]); ctx.strokeStyle = 'rgba(244,251,248,0.13)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(sx(0), ly); ctx.lineTo(sx(WORLD_W), ly); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(244,251,248,0.35)'; ctx.font = '500 11px "DM Mono", ui-monospace, monospace';
+      ctx.fillText('THE LINEUP', sx(40), ly - 6);
+    }
+    // finish line: checkered floating rope with flags
+    const fy = sy(FINISH_Y);
+    if (fy > -40 && fy < VH + 40) {
+      const w0 = Math.max(0, Math.floor((camX - VW / 2) / 12) * 12), w1 = Math.min(WORLD_W, camX + VW / 2 + 12);
+      for (let wx = w0; wx < w1; wx += 12) {
+        const X = sx(wx), bob = Math.sin(G.t * 2 + wx * 0.02) * 1.5, k = Math.round(wx / 12);
+        ctx.fillStyle = k % 2 ? '#F4FBF8' : '#08212D'; ctx.fillRect(X, fy - 6 + bob, 12, 6);
+        ctx.fillStyle = k % 2 ? '#08212D' : '#F4FBF8'; ctx.fillRect(X, fy + bob, 12, 6);
+      }
+      ctx.textAlign = 'center';
+      for (let wx = 150; wx < WORLD_W; wx += 360) {
+        const X = sx(wx); if (X < -60 || X > VW + 60) continue;
+        ctx.fillStyle = '#FFC43D'; ctx.fillRect(X - 40, fy - 36, 80, 22);
+        ctx.fillStyle = '#08212D'; ctx.font = '700 14px "DM Mono", ui-monospace, monospace';
+        ctx.fillText('FINISH', X, fy - 20);
+        ctx.fillStyle = '#6B4A2A'; ctx.fillRect(X - 41, fy - 36, 2, 36); ctx.fillRect(X + 39, fy - 36, 2, 36);
+      }
+      ctx.textAlign = 'start';
+    }
+  }
+
+  function drawShore() {
+    const ys = sy(0);
+    if (ys > VH + 10) return;
+    ctx.fillStyle = '#C9A765'; ctx.fillRect(0, ys - 2, VW, VH - ys + 4);
+    ctx.fillStyle = '#E2BF7E'; ctx.fillRect(0, ys + 18, VW, VH - ys);
+    // swash
+    const sw = (Math.sin(G.t * 0.9) + 1) * 7;
+    ctx.fillStyle = 'rgba(244,251,248,0.85)'; ctx.beginPath();
+    ctx.moveTo(0, ys - 4);
+    for (let X = 0; X <= VW + 12; X += 12) { const wx = X + camX - VW / 2; ctx.lineTo(X, ys + sw + Math.sin(wx * 0.03 + G.t * 1.4) * 3); }
+    ctx.lineTo(VW, ys - 4); ctx.closePath(); ctx.fill();
+    // umbrella and towel near the start
+    const ux = sx(560), uy = sy(-95);
+    ctx.fillStyle = '#F2615A'; ctx.fillRect(ux + 22, uy - 8, 26, 14);
+    ctx.fillStyle = 'rgba(8,33,45,0.15)'; ctx.beginPath(); ctx.ellipse(ux + 6, uy + 6, 26, 22, 0, 0, 2 * PI); ctx.fill();
+    for (let i = 0; i < 8; i++) {
+      ctx.fillStyle = i % 2 ? '#F4FBF8' : '#FFC43D';
+      ctx.beginPath(); ctx.moveTo(ux, uy); ctx.arc(ux, uy, 24, i / 8 * 2 * PI, (i + 1) / 8 * 2 * PI); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = '#08212D'; ctx.beginPath(); ctx.arc(ux, uy, 2.5, 0, 2 * PI); ctx.fill();
+    // coconut palms along the back of the beach
+    for (let i = 0; i < 12; i++) {
+      const px = sx(40 + i * 120 + hash(i, 7) * 50), py = sy(-120 - hash(7, i) * 60);
+      if (px < -60 || px > VW + 60 || py > VH + 60) continue;
+      const sway = Math.sin(G.t * 0.8 + i) * 0.05;
+      ctx.fillStyle = 'rgba(60,40,10,0.18)'; ctx.beginPath(); ctx.ellipse(px + 14, py + 16, 30, 16, 0.4, 0, 2 * PI); ctx.fill();
+      for (let k = 0; k < 7; k++) {
+        const an = k / 7 * 2 * PI + hash(i, k) * 0.4 + sway;
+        ctx.strokeStyle = k % 2 ? '#2E7D3A' : '#3F9A45'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(px, py);
+        ctx.quadraticCurveTo(px + Math.cos(an) * 18, py + Math.sin(an) * 18 - 4, px + Math.cos(an) * 32, py + Math.sin(an) * 32 + 4);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#7A5A2E'; ctx.beginPath(); ctx.arc(px, py, 4, 0, 2 * PI); ctx.fill();
+    }
+  }
+
+  function drawBoats() {
+    for (const b of G.boats) {
+      const X = sx(b.x), Y = sy(b.y);
+      if (X < -80 || X > VW + 80 || Y < -80 || Y > VH + 80) continue;
+      ctx.save(); ctx.translate(X, Y + Math.sin(G.t * 1.3 + b.x) * 0.8); ctx.rotate(b.a);
+      ctx.fillStyle = 'rgba(3,26,40,0.25)'; ctx.beginPath(); ctx.ellipse(3, 4, 9, 34, 0, 0, 2 * PI); ctx.fill();
+      // outrigger booms and float
+      ctx.strokeStyle = '#6B4A2A'; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(b.side * 26, -12); ctx.moveTo(0, 12); ctx.lineTo(b.side * 26, 12); ctx.stroke();
+      ctx.fillStyle = '#E9E4D8'; ctx.beginPath(); ctx.ellipse(b.side * 27, 0, 3.5, 22, 0, 0, 2 * PI); ctx.fill();
+      // hull
+      ctx.fillStyle = b.col; ctx.beginPath();
+      ctx.moveTo(0, -34); ctx.bezierCurveTo(9, -22, 9, 22, 0, 34); ctx.bezierCurveTo(-9, 22, -9, -22, 0, -34); ctx.fill();
+      ctx.fillStyle = '#D9443A'; ctx.fillRect(-6, -3, 12, 6);
+      ctx.fillStyle = '#F4F1E8'; ctx.beginPath(); ctx.ellipse(0, 0, 4, 26, 0, 0, 2 * PI); ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(244,251,248,0.25)'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(X, Y, 16 + Math.sin(G.t * 2 + b.y) * 2, 40, b.a, 0, 2 * PI); ctx.stroke();
+    }
+  }
+
+  function foamBand(wa, wb, ys, h, w, trail) {
+    wa = Math.max(wa, camX - VW / 2 - 20); wb = Math.min(wb, camX + VW / 2 + 20);
+    if (wb <= wa) return;
+    const a = sx(wa), b = sx(wb);
+    if (trail) { ctx.fillStyle = 'rgba(244,251,248,0.16)'; ctx.fillRect(a, ys - 55 * h, b - a, 55 * h); }
+    const step = 10, s0 = Math.floor(wa / step) * step;
+    ctx.fillStyle = 'rgba(244,251,248,0.93)'; ctx.beginPath();
+    ctx.moveTo(a, ys - 6);
+    for (let wx = s0; wx <= wb + step; wx += step) {
+      const X = clamp(sx(wx), a, b);
+      ctx.lineTo(X, ys - 6 - hash(wx / step, w.id) * 7 * h - Math.sin(G.t * 3 + wx * 0.05) * 2);
+    }
+    for (let wx = Math.ceil(wb / step) * step; wx >= s0; wx -= step) {
+      const X = clamp(sx(wx), a, b);
+      ctx.lineTo(X, ys + FACE * 0.5 * h + hash(w.id, wx / step) * 12 + Math.sin(G.t * 2.4 + wx * 0.07) * 3);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(170,215,215,0.55)';
+    ctx.beginPath();
+    for (let wx = s0; wx <= wb; wx += 17) {
+      const X = sx(wx + hash(wx, 3) * 8); if (X < a || X > b) continue;
+      const Y = ys + hash(wx, w.id) * FACE * 0.45 * h;
+      const r = 1.5 + hash(w.id, wx) * 2.5;
+      ctx.moveTo(X + r, Y); ctx.arc(X, Y, r, 0, 2 * PI);
+    }
+    ctx.fill();
+  }
+
+  function drawWave(w) {
+    const ys = sy(w.y);
+    if (ys < -140 || ys > VH + 140) return;
+    const h = 0.55 + w.ft / 8;
+    const X0 = Math.max(0, sx(0)), X1 = Math.min(VW, sx(WORLD_W));
+    if (w.state !== 'white') {
+      let g = ctx.createLinearGradient(0, ys - 65 * h, 0, ys);
+      g.addColorStop(0, 'rgba(120,220,210,0)'); g.addColorStop(1, 'rgba(150,235,225,0.3)');
+      ctx.fillStyle = g; ctx.fillRect(X0, ys - 65 * h, X1 - X0, 65 * h);
+      g = ctx.createLinearGradient(0, ys, 0, ys + FACE * h);
+      g.addColorStop(0, 'rgba(3,26,40,0.5)'); g.addColorStop(1, 'rgba(3,26,40,0)');
+      ctx.fillStyle = g; ctx.fillRect(X0, ys, X1 - X0, FACE * h);
+      ctx.strokeStyle = 'rgba(235,255,250,0.6)'; ctx.lineWidth = 2; ctx.beginPath();
+      for (let X = X0; X <= X1; X += 12) { const Y = ys + Math.sin((X + camX) * 0.02 + w.id) * 1.6; X === X0 ? ctx.moveTo(X, Y) : ctx.lineTo(X, Y); }
+      ctx.stroke();
+      if (w.state === 'breaking') {
+        foamBand(w.bL, w.bR, ys, h, w, true);
+        // curling lips at each edge of the break
+        for (const [ex, dir] of [[w.bL, -1], [w.bR, 1]]) {
+          const X = sx(ex); if (X < -30 || X > VW + 30) continue;
+          ctx.strokeStyle = 'rgba(3,26,40,0.35)'; ctx.lineWidth = 6;
+          ctx.beginPath(); ctx.moveTo(X, ys - 4); ctx.quadraticCurveTo(X + dir * 22, ys + 6, X + dir * 6, ys + FACE * 0.45 * h); ctx.stroke();
+          ctx.strokeStyle = 'rgba(250,255,253,0.95)'; ctx.lineWidth = 3.5;
+          ctx.beginPath(); ctx.moveTo(X - dir * 4, ys - 7); ctx.quadraticCurveTo(X + dir * 18, ys, X + dir * 3, ys + FACE * 0.4 * h); ctx.stroke();
+        }
+      }
+    } else {
+      foamBand(0, WORLD_W, ys, h * (0.5 + w.power * 0.5), w, true);
+    }
+  }
+
+  function drawRocks() {
+    for (const r of G.rocks) {
+      const X = sx(r.x), Y = sy(r.y);
+      if (X < -60 || X > VW + 60 || Y < -60 || Y > VH + 60) continue;
+      ctx.strokeStyle = `rgba(244,251,248,${0.35 + Math.sin(G.t * 2 + r.x) * 0.15})`; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(X, Y, r.r + 6 + Math.sin(G.t * 1.6 + r.y) * 2, 0, 2 * PI); ctx.stroke();
+      ctx.fillStyle = '#34454B'; ctx.beginPath();
+      r.pts.forEach(([px, py], i) => i ? ctx.lineTo(X + px, Y + py) : ctx.moveTo(X + px, Y + py)); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#56696E'; ctx.beginPath();
+      r.pts.forEach(([px, py], i) => i ? ctx.lineTo(X + px * 0.6 - 3, Y + py * 0.6 - 3) : ctx.moveTo(X + px * 0.6 - 3, Y + py * 0.6 - 3)); ctx.closePath(); ctx.fill();
+    }
+  }
+
+  function drawNuts() {
+    for (const n of G.nuts) {
+      if (n.gone > 0) continue;
+      const X = sx(n.x), Y = sy(n.y) + Math.sin(G.t * 2 + n.ph) * 1.5;
+      if (X < -30 || X > VW + 30 || Y < -30 || Y > VH + 30) continue;
+      ctx.strokeStyle = `rgba(255,196,61,${0.35 + Math.sin(G.t * 4 + n.ph) * 0.25})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(X, Y, 15 + Math.sin(G.t * 4 + n.ph) * 2, 0, 2 * PI); ctx.stroke();
+      ctx.fillStyle = '#F29A2E'; ctx.beginPath(); ctx.arc(X, Y, 8, 0, 2 * PI); ctx.fill();
+      ctx.fillStyle = '#FFC66B'; ctx.beginPath(); ctx.arc(X - 2.5, Y - 2.5, 3, 0, 2 * PI); ctx.fill();
+      ctx.fillStyle = '#5E8F3A'; ctx.beginPath(); ctx.arc(X + 1, Y - 7, 2.6, 0, 2 * PI); ctx.fill();
+    }
+  }
+
+  function drawGems() {
+    for (const g of G.gems) {
+      if (g.got) continue;
+      const X = sx(g.x), Y = sy(g.wave.y - g.d) + Math.sin(G.t * 5 + g.x) * 1.5;
+      if (X < -20 || X > VW + 20 || Y < -20 || Y > VH + 20) continue;
+      ctx.fillStyle = 'rgba(120,190,255,0.35)'; ctx.beginPath(); ctx.arc(X, Y, 12 + Math.sin(G.t * 6 + g.x) * 2, 0, 2 * PI); ctx.fill();
+      ctx.fillStyle = '#2F5FD0'; ctx.beginPath(); ctx.moveTo(X, Y - 9); ctx.lineTo(X + 7, Y - 2); ctx.lineTo(X, Y + 9); ctx.lineTo(X - 7, Y - 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#8EC1FF'; ctx.beginPath(); ctx.moveTo(X, Y - 9); ctx.lineTo(X + 7, Y - 2); ctx.lineTo(X, Y - 1); ctx.lineTo(X - 7, Y - 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#FFFFFF'; ctx.fillRect(X - 1, Y - 6, 2, 2);
+    }
+  }
+
+  function drawJellies() {
+    for (const j of G.jellies) {
+      const X = sx(j.x), Y = sy(j.y);
+      if (X < -30 || X > VW + 30 || Y < -30 || Y > VH + 30) continue;
+      const pulse = 1 + Math.sin(G.t * 3 + j.ph) * 0.12;
+      ctx.strokeStyle = 'rgba(255,170,200,0.45)'; ctx.lineWidth = 1.2; ctx.beginPath();
+      for (let i = -2; i <= 2; i++) { ctx.moveTo(X + i * 3, Y + 4); ctx.quadraticCurveTo(X + i * 3 + Math.sin(G.t * 2 + i) * 4, Y + 12, X + i * 3.5, Y + 20); }
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,170,200,0.55)'; ctx.beginPath(); ctx.ellipse(X, Y, 9 * pulse, 7 / pulse, 0, 0, 2 * PI); ctx.fill();
+      ctx.fillStyle = 'rgba(255,230,240,0.6)'; ctx.beginPath(); ctx.ellipse(X - 2, Y - 2, 3.5, 2.5, 0, 0, 2 * PI); ctx.fill();
+    }
+  }
+
+  function drawSurfer(x, y, a, board, suit, pose, stroke, alpha = 1, me = false, dance = null) {
+    const X = sx(x), Y = sy(y);
+    if (X < -40 || X > VW + 40 || Y < -40 || Y > VH + 40) return;
+    ctx.save(); ctx.globalAlpha = alpha; ctx.translate(X, Y); ctx.rotate(a);
+    ctx.fillStyle = 'rgba(3,26,40,0.25)';
+    ctx.beginPath(); ctx.ellipse(2, 3, 7, 18, 0, 0, 2 * PI); ctx.fill();
+    if (me) {
+      // soft-top longboard: longer, rounder nose, darker rails
+      ctx.fillStyle = '#4E7F9C'; ctx.beginPath(); ctx.ellipse(0, 1, 8.2, 24, 0, 0, 2 * PI); ctx.fill();
+      ctx.fillStyle = board; ctx.beginPath(); ctx.ellipse(0, 1, 7, 23, 0, 0, 2 * PI); ctx.fill();
+      ctx.fillStyle = '#F2A99A'; ctx.beginPath(); ctx.arc(0, -12, 3, 0, 2 * PI); ctx.fill();
+    } else {
+    ctx.fillStyle = board; ctx.beginPath();
+    ctx.moveTo(0, -18); ctx.bezierCurveTo(7.5, -12, 6.5, 12, 0, 16); ctx.bezierCurveTo(-6.5, 12, -7.5, -12, 0, -18); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(0, 14); ctx.stroke();
+    }
+    const skin = me ? '#EFC7AE' : '#C48A60';
+    const hair = (hx, hy, dx, dy) => {
+      // long dark curly hair flowing toward the tail
+      ctx.fillStyle = '#1B1210';
+      for (let k = 0; k < 7; k++) {
+        const t = k / 6;
+        ctx.beginPath(); ctx.arc(hx + dx * t * 11 + Math.sin(G.t * 6 + k * 1.3) * 1.4 * t, hy + dy * t * 11, 3.3 - t * 1.2, 0, 2 * PI); ctx.fill();
+        ctx.beginPath(); ctx.arc(hx + dx * t * 11 + (dy ? 2.2 : 0), hy + dy * t * 11 + (dx ? 2.2 : 0), 2.2 - t * 0.8, 0, 2 * PI); ctx.fill();
+      }
+    };
+    if (pose === 'ride') {
+      let shaka = false;
+      if (dance) {
+        const k = Math.sin(dance.t / 1.2 * PI);
+        if (dance.move === 'Cross-step') ctx.translate(Math.sin(dance.t * 14) * 1.5, -k * 10);
+        else if (dance.move === 'Hang ten') ctx.translate(0, -k * 15);
+        else { shaka = true; ctx.rotate(Math.sin(dance.t * 12) * 0.25); }
+      }
+      ctx.strokeStyle = skin; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
+      ctx.beginPath();
+      if (shaka) {
+        const wv = Math.sin(dance.t * 16) * 4;
+        ctx.moveTo(0, -3); ctx.lineTo(-12, -3 + wv); ctx.moveTo(0, 3); ctx.lineTo(12, 3 - wv);
+      } else { ctx.moveTo(0, -4); ctx.lineTo(-9, -10); ctx.moveTo(0, 4); ctx.lineTo(9, 10); }
+      ctx.stroke();
+      if (shaka) { ctx.fillStyle = skin; ctx.beginPath(); ctx.arc(-12, -3 + Math.sin(dance.t * 16) * 4, 2, 0, 2 * PI); ctx.arc(12, 3 - Math.sin(dance.t * 16) * 4, 2, 0, 2 * PI); ctx.fill(); }
+      ctx.fillStyle = suit; ctx.beginPath(); ctx.ellipse(0, 0, 3.6, 7, 0, 0, 2 * PI); ctx.fill();
+      if (me) { if (!shaka) { ctx.strokeStyle = suit; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(0, -4); ctx.lineTo(-6, -8); ctx.moveTo(0, 4); ctx.lineTo(6, 8); ctx.stroke(); } hair(0, 0, 0.35, 1); }
+      ctx.fillStyle = me ? '#1B1210' : '#3A2A1E'; ctx.beginPath(); ctx.arc(0, 0, 3.1, 0, 2 * PI); ctx.fill();
+    } else if (pose === 'sit') {
+      ctx.strokeStyle = skin; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-3, 7); ctx.lineTo(-9, 9); ctx.moveTo(3, 7); ctx.lineTo(9, 9); ctx.stroke();
+      ctx.fillStyle = suit; ctx.beginPath(); ctx.ellipse(0, 4, 6, 3.6, 0, 0, 2 * PI); ctx.fill();
+      ctx.fillStyle = '#3A2A1E'; ctx.beginPath(); ctx.arc(0, 3.5, 3, 0, 2 * PI); ctx.fill();
+    } else {
+      const s1 = Math.sin(stroke), s2 = Math.sin(stroke + PI);
+      ctx.strokeStyle = skin; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(-3.5, -4); ctx.lineTo(-8, -4 + s1 * 8);
+      ctx.moveTo(3.5, -4); ctx.lineTo(8, -4 + s2 * 8);
+      ctx.moveTo(-1.5, 10); ctx.lineTo(-2.5, 17); ctx.moveTo(1.5, 10); ctx.lineTo(2.5, 17);
+      ctx.stroke();
+      if (me) { ctx.strokeStyle = suit; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(-3.5, -4); ctx.lineTo(-6.5, -4 + s1 * 5.5); ctx.moveTo(3.5, -4); ctx.lineTo(6.5, -4 + s2 * 5.5); ctx.stroke(); }
+      ctx.fillStyle = suit; ctx.beginPath(); ctx.ellipse(0, 2, 3.8, 8.5, 0, 0, 2 * PI); ctx.fill();
+      if (me) hair(0, -7, 0, 1);
+      ctx.fillStyle = me ? '#1B1210' : '#3A2A1E'; ctx.beginPath(); ctx.arc(0, -8, 3, 0, 2 * PI); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawPlayer() {
+    const p = G.p;
+    if (G.mode === 'title' || G.mode === 'over') return;
+    // wake
+    if (p.trail.length > 1) {
+      ctx.lineCap = 'round';
+      for (let i = 1; i < p.trail.length; i++) {
+        const t0 = p.trail[i - 1], t1 = p.trail[i];
+        ctx.strokeStyle = `rgba(244,251,248,${(i / p.trail.length) * (G.mode === 'ride' ? 0.55 : 0.3)})`;
+        ctx.lineWidth = G.mode === 'ride' ? 3.5 : 2;
+        ctx.beginPath(); ctx.moveTo(sx(t0.x), sy(t0.y)); ctx.lineTo(sx(t1.x), sy(t1.y)); ctx.stroke();
+      }
+    }
+    const X = sx(p.x), Y = sy(p.y);
+    if (G.mode === 'wipe') {
+      ctx.save(); ctx.translate(X, Y); ctx.rotate(p.spin);
+      ctx.fillStyle = '#8FC6E3'; ctx.beginPath(); ctx.ellipse(0, 0, 7, 23, 0, 0, 2 * PI); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = 'rgba(244,251,248,0.7)';
+      for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(X + Math.cos(G.t * 5 + i) * 16, Y + Math.sin(G.t * 4 + i * 2) * 12, 2.5, 0, 2 * PI); ctx.fill(); }
+      return;
+    }
+    let alpha = 1;
+    if (p.inv > 0 && Math.floor(G.t * 10) % 2 === 0) alpha = 0.45;
+    if (p.diveT > 0) alpha = 0.3;
+    // catch meter
+    if (G.mode === 'paddle' && G.catchable && Math.cos(p.a) < -0.35) {
+      ctx.strokeStyle = 'rgba(255,196,61,0.3)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(X, Y, 26, 0, 2 * PI); ctx.stroke();
+    }
+    if (p.catch > 0) {
+      ctx.strokeStyle = p.catch >= 0.5 ? (Math.floor(G.t * 8) % 2 ? '#FFFFFF' : '#FFC43D') : '#FFC43D'; ctx.lineWidth = p.catch >= 0.5 ? 4.5 : 3; ctx.beginPath();
+      ctx.arc(X, Y, 26, -PI / 2, -PI / 2 + 2 * PI * Math.min(1, p.catch / 0.5)); ctx.stroke();
+    }
+    p.popT = Math.max(0, p.popT - 1 / 60);
+    const sc = G.mode === 'ride' ? 1.2 + Math.sin(Math.min(1, 1 - p.popT / 0.5) * PI) * 0.35 : 1;
+    let scale = sc, rot = p.a, dance = null;
+    if (G.mode === 'ride' && p.airT > 0) {
+      const hgt = Math.sin((1 - p.airT / AIR) * PI);
+      scale += hgt * 0.7; rot += p.spin;
+      ctx.save(); ctx.translate(X + 14 * hgt, Y + 18 * hgt); ctx.rotate(rot);
+      ctx.fillStyle = `rgba(3,26,40,${0.35 - hgt * 0.15})`; ctx.beginPath(); ctx.ellipse(0, 0, 8, 22, 0, 0, 2 * PI); ctx.fill();
+      ctx.restore();
+    }
+    if (G.mode === 'ride' && p.danceT > 0) {
+      dance = { move: p.danceMove, t: 1.2 - p.danceT };
+      ctx.fillStyle = '#FFC43D'; ctx.font = '700 16px Karla, sans-serif';
+      ctx.fillText('♪', X + 18, Y - 16 - dance.t * 14); ctx.fillText('♫', X - 24, Y - 8 - dance.t * 10);
+    }
+    ctx.save(); ctx.translate(X, Y); ctx.scale(scale, scale); ctx.translate(-X, -Y);
+    drawSurfer(p.x, p.y, rot, '#8FC6E3', '#16161B', G.mode === 'ride' ? 'ride' : 'paddle', p.stroke, alpha, true, dance);
+    ctx.restore();
+    if (p.diveT > 0) {
+      ctx.fillStyle = 'rgba(244,251,248,0.75)';
+      for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(X + Math.sin(G.t * 9 + i * 1.7) * 10, Y + Math.cos(G.t * 7 + i) * 10, 2 + (i % 2), 0, 2 * PI); ctx.fill(); }
+    }
+    // cue: turn to shore
+    if (G.mode === 'paddle' && (G.catchable || G.incoming) && atPeak() && Math.cos(p.a) > -0.35) {
+      const bob = Math.sin(G.t * 8) * 3;
+      ctx.fillStyle = '#FFC43D'; ctx.beginPath();
+      ctx.moveTo(X - 7, Y + 30 + bob); ctx.lineTo(X + 7, Y + 30 + bob); ctx.lineTo(X, Y + 40 + bob); ctx.closePath(); ctx.fill();
+    }
+  }
+
+  function drawIndicators() {
+    ctx.font = '500 11px "DM Mono", ui-monospace, monospace'; ctx.textAlign = 'center';
+    {
+      const X = sx(G.peak.x), Y = sy(G.peak.y + 40);
+      if (Y > -40 && Y < VH + 40) {
+        ctx.strokeStyle = 'rgba(255,196,61,0.35)'; ctx.lineWidth = 2; ctx.setLineDash([5, 7]);
+        ctx.beginPath(); ctx.ellipse(X, sy(G.peak.y), 220, 60, 0, 0, 2 * PI); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#FF8A3D'; ctx.beginPath(); ctx.arc(X, Y, 7, 0, 2 * PI); ctx.fill();
+        ctx.fillStyle = '#F4FBF8'; ctx.fillRect(X - 7, Y - 1.5, 14, 3);
+        ctx.strokeStyle = 'rgba(244,251,248,0.7)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(X, Y, 11 + Math.sin(G.t * 3) * 2, 0, 2 * PI); ctx.stroke();
+        ctx.fillStyle = '#FFC43D'; ctx.font = '700 13px "DM Mono", ui-monospace, monospace';
+        ctx.fillText('PEAK', X, Y - 18);
+        ctx.font = '500 11px "DM Mono", ui-monospace, monospace';
+      }
+      if (G.mode === 'paddle' && !atPeak() && (Y < 150 / S || Y > VH || X < 0 || X > VW)) {
+        const px = sx(G.p.x), py = sy(G.p.y), an = Math.atan2(Y - py, X - px);
+        const ax = px + Math.cos(an) * 55, ay = py + Math.sin(an) * 55;
+        ctx.save(); ctx.translate(ax, ay); ctx.rotate(an);
+        ctx.fillStyle = '#FFC43D'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-6, -8); ctx.lineTo(-2, 0); ctx.lineTo(-6, 8); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+    }
+    // incoming swells beyond the top of the screen
+    const topPad = 90 / S;
+    for (const w of G.waves) {
+      if (w.state !== 'swell' || sy(w.y) > 0) continue;
+      const X = clamp(sx(w.peakX), 40, VW - 40), Y = topPad + Math.sin(G.t * 4) * 2;
+      ctx.fillStyle = 'rgba(244,251,248,0.8)';
+      ctx.beginPath(); ctx.moveTo(X - 8, Y); ctx.lineTo(X + 8, Y); ctx.lineTo(X, Y + 8); ctx.closePath(); ctx.fill();
+      ctx.fillText(`${w.ft} FT SWELL`, X, Y + 22);
+      break;
+    }
+    ctx.textAlign = 'start';
+  }
+
+  function render() {
+    ctx.setTransform(DPR * S, 0, 0, DPR * S, 0, 0);
+    if (G.shake > 0) ctx.translate(R(-1, 1) * G.shake * 10, R(-1, 1) * G.shake * 10);
+    drawWater();
+    drawShore();
+    drawJellies();
+    [...G.waves].sort((a, b) => b.y - a.y).forEach(drawWave);
+    drawRocks();
+    drawBoats();
+    drawNuts();
+    drawGems();
+    for (const q of G.parts) { ctx.fillStyle = q.col || 'rgba(244,251,248,0.85)'; ctx.globalAlpha = 1 - q.t / q.life; ctx.beginPath(); ctx.arc(sx(q.x), sy(q.y), q.r, 0, 2 * PI); ctx.fill(); }
+    ctx.globalAlpha = 1;
+    for (const s of G.surfers) drawSurfer(s.x, s.y + (s.state === 'sit' ? Math.sin(s.bob * 1.5) * 1.2 : 0), s.a, s.board, s.suit, s.state === 'ride' ? 'ride' : s.state === 'sit' ? 'sit' : 'paddle', s.stroke);
+    drawPlayer();
+    drawIndicators();
+  }
+
+  // ---- HUD ----
+  const cueEl = $('cue');
+  const coach = { el: $('coach'), n: $('coachN'), t: $('coachT') };
+  const hud = { score: $('score'), boards: $('boards').children, stam: $('stam'), arms: $('arms'), status: $('status'), sub: $('sub'), act: $('actBtn') };
+  let last = {};
+  function setText(el, key, v) { if (last[key] !== v) { last[key] = v; el.textContent = v; } }
+  function updateHud() {
+    if (G.mode === 'title' || G.mode === 'over') return;
+    const p = G.p;
+    setText(hud.score, 'score', String(G.score));
+    for (let i = 0; i < 3; i++) hud.boards[i].className = i < G.lives ? '' : 'off';
+    hud.stam.style.width = p.st.toFixed(0) + '%';
+    hud.arms.classList.toggle('tired', p.tired || p.st < 20);
+    let status, sub;
+    if (G.mode === 'ride') {
+      status = G.mult === 3 ? 'In the tube ×3' : G.mult === 2 ? 'In the pocket ×2' : 'Riding · find the pocket';
+      sub = `+${Math.round(G.rideScore)} this wave`;
+    } else if (G.mode === 'wipe') {
+      status = 'Held under…'; sub = `${G.lives} board${G.lives === 1 ? '' : 's'} left`;
+    } else {
+      if (p.y < PEAK_Y - 90) status = `Paddle to the peak · ${Math.round((PEAK_Y - p.y) * U2M)} m`;
+      else if (G.catchable) status = Math.cos(p.a) >= -0.35 ? 'Wave! Turn to shore ↓' : p.catch >= 0.5 ? 'Press Space to stand up!' : 'Paddle! Paddle!';
+      else status = 'In the lineup · wait for a set';
+      sub = `Swell ${G.peak.ft} ft · waves ridden ${G.ridden}`;
+    }
+    // first attempt: say exactly when to turn, paddle and stand
+    let cue = '', go = false;
+    G.cueOn = false;
+    if (G.tutorial && G.mode === 'paddle' && G.incoming && p.y > PEAK_Y - 220) {
+      const tt = (G.incoming.y - p.y) / G.incoming.speed;
+      G.cueOn = true;
+      if (G.canTake) { cue = 'PRESS SPACE!<small>Stand up now</small>'; go = true; }
+      else if (tt > 1.7) cue = `Turn around ↓<small>Start paddling in ${Math.ceil(tt - 1.7)}…</small>`;
+      else { cue = 'PADDLE NOW! ↓<small>Hold ↓ toward the beach</small>'; go = true; }
+    }
+    if (last.cue !== cue) { last.cue = cue; cueEl.innerHTML = cue; cueEl.hidden = !cue; }
+    cueEl.classList.toggle('go', go);
+    setText($('fin'), 'fin', `${G.finishes}/${GOAL}`);
+    // step-by-step coach
+    let cn, ct, hot = false;
+    const facing = Math.cos(p.a) < -0.35;
+    if (G.mode === 'ride') { cn = '★'; ct = p.airT > 0 ? 'Hold ← or → to spin!' : 'Ride to FINISH · X jump · Z dance'; }
+    else if (G.mode === 'won') { cn = '★'; ct = 'You won!'; }
+    else if (G.mode === 'wipe') { cn = '!'; ct = 'Wiped out…'; }
+    else if (G.catchable) { cn = '5'; ct = 'Press SPACE to stand up!'; hot = true; }
+    else if ((G.catchable || G.incoming) && facing && p.y > PEAK_Y - 200) { cn = '4'; ct = 'Keep paddling ↓ The wave is almost at you'; }
+    else if (G.incoming && atPeak()) { cn = '3'; ct = 'Wave coming! Turn around ↓ and paddle to the beach'; hot = true; }
+    else if (atPeak()) { cn = '2'; ct = 'You’re at the peak. Wait for a wave…'; }
+    else if (p.y > PEAK_Y - 90) { cn = '1'; ct = `Move ${p.x < G.peak.x ? '→' : '←'} to the PEAK buoy`; }
+    else { cn = '1'; ct = `Paddle ↑ to the PEAK buoy · ${Math.round((PEAK_Y - p.y) * U2M)} m`; }
+    setText(coach.n, 'cn', cn); setText(coach.t, 'ct', ct);
+    coach.el.classList.toggle('hot', hot);
+    hud.arms.classList.toggle('boost', p.boost > 0);
+    setText(hud.status, 'status', status);
+    setText(hud.sub, 'sub', sub);
+    setText(hud.act, 'act', G.mode === 'ride' ? 'Kick out' : 'Stand up');
+    $('diveBtn').hidden = G.mode === 'ride'; $('jumpBtn').hidden = G.mode !== 'ride';
+    $('danceBtn').hidden = G.mode !== 'ride';
+  }
+
+  // ---- Loop ----
+  newGame('title');
+  let lastT = performance.now();
+  function frame(now) {
+    let dt = (now - lastT) / 1000; lastT = now;
+    dt = Math.min(dt, 1 / 30);
+    if (!paused) { update(G.cueOn ? dt * 0.6 : dt); render(); updateHud(); }
+    requestAnimationFrame(frame);
+  }
+  // warm up the title scene so the first frame already shows waves in motion
+  for (let i = 0; i < 180; i++) update(1 / 60);
+  camX = 700; camY = 1150;
+  requestAnimationFrame(frame);
+  setTimeout(() => $('startBtn').focus(), 100);
+})();
+</script>
+</body>
+</html>

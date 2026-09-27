@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0A3347">
 <title>Paddle Out</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,7 +23,35 @@
     --panel: rgba(8, 33, 45, 0.72);
   }
   [hidden] { display: none !important; }
-  html, body { height: 100%; }
+  html, body { height: 100%; overscroll-behavior: none; }
+  button { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  body.is-touch .desk-only, body:not(.is-touch) .mob-only { display: none !important; }
+  .tilt {
+    position: fixed; left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+    width: 76px; height: 76px; border-radius: 50%; pointer-events: none;
+    background: rgba(8, 33, 45, .55); box-shadow: inset 0 0 0 1.5px rgba(244, 251, 248, .25);
+  }
+  .tilt::before, .tilt::after { content: ""; position: absolute; background: rgba(244, 251, 248, .18); }
+  .tilt::before { left: 50%; top: 10px; bottom: 10px; width: 1px; }
+  .tilt::after { top: 50%; left: 10px; right: 10px; height: 1px; }
+  .tilt i { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--board); box-shadow: 0 2px 6px rgba(0,0,0,.35); }
+  .tilt span { position: absolute; left: 0; right: 0; bottom: -18px; text-align: center; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; opacity: .75; }
+  @media (max-width: 600px) {
+    .hud { gap: 6px; padding-top: calc(env(safe-area-inset-top, 0px) + 8px); padding-inline: 10px; }
+    .hud-group { gap: 6px; }
+    .chip { padding: 5px 8px; gap: 6px; border-radius: 10px; }
+    .label { font-size: 9px; letter-spacing: .08em; }
+    .score { font-size: 17px; }
+    .boards i { width: 6px; height: 17px; }
+    .bar { width: 60px; }
+    #statusChip { display: none; }
+    .coach { font-size: 14px; padding: 6px 14px 6px 6px; }
+    .coach .n { width: 24px; height: 24px; font-size: 12px; }
+    .cue { top: 40%; }
+    .card { padding: 20px 18px; gap: 12px; }
+    ol.steps { gap: 4px; font-size: 14px; }
+    .badge { bottom: calc(env(safe-area-inset-bottom, 0px) + 180px); }
+  }
   body {
     margin: 0; background: var(--deep); color: var(--foam);
     font: 15px/1.5 Karla, system-ui, -apple-system, sans-serif;
@@ -66,7 +96,6 @@
   .coach.hot { border-color: var(--board); background: rgba(255, 196, 61, .95); color: var(--ink); }
   .coach.hot .n { background: var(--ink); color: var(--board); }
   .arms.boost .fill { background: var(--board); box-shadow: 0 0 10px var(--board); }
-  @media (min-width: 700px) { .coach { top: calc(env(safe-area-inset-top, 0px) + 72px); } }
   .cue {
     position: fixed; left: 50%; top: 46%; transform: translate(-50%, -50%);
     width: max-content; max-width: calc(100% - 32px); text-align: center; pointer-events: none;
@@ -190,7 +219,7 @@
     <div class="chip"><span class="label">Finish</span><span class="score" id="fin" style="font-size:18px">0/3</span></div>
     <div class="chip arms" id="arms"><span class="label">Arms</span><div class="bar"><div class="fill" id="stam"></div></div></div>
   </div>
-  <div class="chip" style="flex-direction:column;align-items:flex-end;gap:0">
+  <div class="chip" id="statusChip" style="flex-direction:column;align-items:flex-end;gap:0">
     <span class="status" id="status">Paddle to the peak</span>
     <span class="sub" id="sub">Swell 4 ft</span>
   </div>
@@ -210,7 +239,15 @@
     <p class="kicker">Dawn session · Weligama Bay, Sri Lanka</p>
     <h1>Paddle Out</h1>
     <p class="lede">Warm water, palm trees, and the oruwa fishing boats are back on their moorings. The sets are rolling in, so grab your longboard and get out there before the wind turns.</p>
-    <ol class="steps">
+    <ol class="steps mob-only">
+      <li><b>Hold your phone upright</b>, like you’re reading it.</li>
+      <li><b>Tilt forward ↑ to paddle out</b> to the PEAK buoy. Tap <b>Dive</b> to go under the whitewater. Grab king coconuts for paddle power.</li>
+      <li><b>Wait at the peak</b> until a wave comes.</li>
+      <li><b>Tilt back toward you ↓</b> to turn and paddle to the beach as the wave reaches you.</li>
+      <li><b>Tap the screen to stand up</b> and take the wave.</li>
+      <li><b>Tilt left and right to ride</b> along the wave to the FINISH line. Tap <b>Jump</b> (tilt in the air to spin) and <b>Dance</b> for tricks.</li>
+    </ol>
+    <ol class="steps desk-only">
       <li><b>Paddle ↑ out to the peak buoy.</b> Duck dive under the whitewater with <kbd>Shift</kbd>. Grab king coconuts on the way for extra paddle power.</li>
       <li><b>Wait at the peak</b> until a wave comes.</li>
       <li><b>Turn around ↓ and paddle back toward the beach</b> as the wave reaches you. A yellow circle fills up.</li>
@@ -229,6 +266,7 @@
     </div>
     <div class="row">
       <button class="go" id="startBtn">Paddle out</button>
+      <span class="hint mob-only">Your phone may ask to use motion. Tap Allow.</span>
       <span class="hint" id="bestIntro"></span>
     </div>
   </div>
@@ -256,8 +294,10 @@
   </div>
 </div>
 
+<div class="tilt" id="tilt" hidden><i id="tiltDot"></i><span>Tilt</span></div>
+
 <div class="touch" id="touch" hidden>
-  <div class="dpad">
+  <div class="dpad" id="dpad">
     <button class="u" data-k="u" aria-label="Paddle out">▲</button>
     <button class="l" data-k="l" aria-label="Left">◀</button>
     <button class="r" data-k="r" aria-label="Right">▶</button>
@@ -306,7 +346,7 @@
   const KEYMAP = { ArrowUp: 'u', KeyW: 'u', ArrowDown: 'd', KeyS: 'd', ArrowLeft: 'l', KeyA: 'l', ArrowRight: 'r', KeyD: 'r', Space: 'act', ShiftLeft: 'dive', ShiftRight: 'dive', KeyZ: 'dance', KeyX: 'jump' };
   window.addEventListener('keydown', e => {
     if ((G.mode === 'title' || G.mode === 'over') && (e.code === 'Enter' || e.code === 'Space')) { e.preventDefault(); startGame(); return; }
-    if (paused) { if (['Space', 'Enter', 'KeyP', 'Escape'].includes(e.code)) { e.preventDefault(); togglePause(); } return; }
+    if (paused) { if (['Space', 'Enter', 'KeyP', 'Escape'].includes(e.code)) { e.preventDefault(); togglePause(); calibrate(); } return; }
     if (e.code === 'KeyP' || e.code === 'Escape') { togglePause(); return; }
     const k = KEYMAP[e.code];
     if (k) { e.preventDefault(); if (k === 'act' && !keys.act) actPressed = true; if (k === 'dive' && !keys.dive) divePressed = true; if (k === 'dance' && !keys.dance) dancePressed = true; if (k === 'jump' && !keys.jump) jumpPressed = true; keys[k] = true; }
@@ -315,6 +355,59 @@
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
   const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  if (coarse) document.body.classList.add('is-touch');
+
+  // ---- Phone tilt steering ----
+  const tilt = { on: false, got: false, fx: 0, fy: 0, fy0: null, sx: 0, sy: 0 };
+  function onOrient(e) {
+    if (e.beta == null || e.gamma == null) return;
+    const b = e.beta, g = e.gamma;
+    const ang = (screen.orientation && screen.orientation.angle) ?? window.orientation ?? 0;
+    let fx, fy;
+    if (ang === 90) { fx = b; fy = -g; }
+    else if (ang === -90 || ang === 270) { fx = -b; fy = g; }
+    else if (ang === 180) { fx = -g; fy = -b; }
+    else { fx = g; fy = b; }
+    tilt.fx = fx; tilt.fy = fy; tilt.got = true;
+    if (tilt.fy0 === null) tilt.fy0 = fy;
+  }
+  function calibrate() { tilt.fy0 = tilt.got ? tilt.fy : null; }
+  function enableTilt() {
+    if (!coarse || tilt.on || typeof DeviceOrientationEvent === 'undefined') return Promise.resolve(tilt.on);
+    const listen = () => { window.addEventListener('deviceorientation', onOrient); tilt.on = true; return true; };
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+      return DeviceOrientationEvent.requestPermission().then(r => r === 'granted' ? listen() : false).catch(() => false);
+    }
+    return Promise.resolve(listen());
+  }
+  window.addEventListener('orientationchange', () => setTimeout(calibrate, 400));
+  const dz = (v, d) => Math.abs(v) < d ? 0 : clamp((v - Math.sign(v) * d) / (1 - d), -1, 1);
+  function axes() {
+    let ix = (keys.r ? 1 : 0) - (keys.l ? 1 : 0), iy = (keys.u ? 1 : 0) - (keys.d ? 1 : 0);
+    if (useTilt() && !ix && !iy) {
+      tilt.sx += (clamp(tilt.fx / 24, -1, 1) - tilt.sx) * 0.35;
+      tilt.sy += (clamp((tilt.fy0 - tilt.fy) / 18, -1, 1) - tilt.sy) * 0.35;
+      ix = dz(tilt.sx, 0.22); iy = dz(tilt.sy, 0.25);
+    }
+    return [ix, iy];
+  }
+  const useTilt = () => tilt.on && tilt.got && tilt.fy0 !== null;
+  const K = (desk, mob) => useTilt() ? mob : coarse ? mob.replace(/Tilt forward ↑/g, 'Hold ▲').replace(/Tilt back ↓/g, 'Hold ▼') : desk;
+  function beginGame() {
+    enableTilt().then(() => {
+      startGame();
+      setTimeout(() => {
+        calibrate();
+        const t = useTilt();
+        $('dpad').hidden = coarse && t; $('tilt').hidden = !(coarse && t);
+        if (coarse && !t) toast('Tilt not available · use the arrow buttons');
+      }, 350);
+    });
+  }
+  cv.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' || !G || (G.mode !== 'paddle' && G.mode !== 'ride')) return;
+    e.preventDefault(); actPressed = true;
+  });
   document.querySelectorAll('.touch [data-k]').forEach(btn => {
     const k = btn.dataset.k;
     const on = e => { e.preventDefault(); if (k === 'act' && !keys.act) actPressed = true; if (k === 'dive' && !keys.dive) divePressed = true; if (k === 'dance' && !keys.dance) dancePressed = true; if (k === 'jump' && !keys.jump) jumpPressed = true; keys[k] = true; btn.classList.add('on'); try { btn.setPointerCapture(e.pointerId); } catch (_) {} };
@@ -411,7 +504,7 @@
   function startGame() {
     newGame('paddle');
     $('intro').hidden = true; $('over').hidden = true; $('pause').hidden = true; paused = false;
-    $('hud').hidden = false; $('coach').hidden = false; $('touch').hidden = !coarse; $('keys').hidden = coarse;
+    $('hud').hidden = false; $('coach').hidden = false; $('touch').hidden = !coarse; $('keys').hidden = coarse; $('tilt').hidden = true;
     camX = G.p.x; camY = G.p.y + 300;
     
   }
@@ -423,7 +516,7 @@
     if (G.score > best) { best = G.score; saveBest(); }
     $('oScore').textContent = G.score; $('oWaves').textContent = G.ridden; $('oBest').textContent = G.bestRide;
     $('oLine').textContent = (won ? 'Weligama is yours today. ' : '') + (G.score >= best && G.score > 0 ? 'New best session. The locals are talking about you.' : `Best session so far: ${best}.`);
-    $('over').hidden = false; $('coach').hidden = true; $('touch').hidden = true; $('keys').hidden = true;
+    $('over').hidden = false; $('coach').hidden = true; $('touch').hidden = true; $('tilt').hidden = true; $('keys').hidden = true;
     setTimeout(() => $('againBtn').focus(), 50);
   }
   function togglePause() {
@@ -431,9 +524,9 @@
     paused = !paused; $('pause').hidden = !paused;
     if (paused) $('resumeBtn').focus();
   }
-  $('startBtn').addEventListener('click', startGame);
-  $('againBtn').addEventListener('click', startGame);
-  $('resumeBtn').addEventListener('click', togglePause);
+  $('startBtn').addEventListener('click', beginGame);
+  $('againBtn').addEventListener('click', beginGame);
+  $('resumeBtn').addEventListener('click', () => { togglePause(); calibrate(); });
   document.addEventListener('visibilitychange', () => { if (document.hidden && !paused && G.mode !== 'title' && G.mode !== 'over') togglePause(); });
 
   // ---- Helpers ----
@@ -559,7 +652,7 @@
   // ---- Player: paddling ----
   function updatePaddle(dt) {
     const p = G.p;
-    const ix = (keys.r ? 1 : 0) - (keys.l ? 1 : 0), iy = (keys.u ? 1 : 0) - (keys.d ? 1 : 0);
+    const [ix, iy] = axes();
     const want = ix !== 0 || iy !== 0;
     if (want) p.a += clamp(angDiff(p.a, Math.atan2(ix, iy)), -5.5 * dt, 5.5 * dt);
     if (p.st <= 0 && !p.tired) { p.tired = true; toast('Arms are cooked. Rest a sec', 'bad'); }
@@ -624,7 +717,7 @@
     if (cand && facingShore && paddling && p.v > 45) p.catch = Math.min(0.5, p.catch + dt);
     else p.catch = Math.max(0, p.catch - dt * 1.5);
     const ready = cand && p.catch >= 0.5;
-    if (cand && !p.readyCalled) { p.readyCalled = true; toast('Now! Press Space to stand up', 'good'); }
+    if (cand && !p.readyCalled) { p.readyCalled = true; toast(K('Now! Press Space to stand up', 'Now! Tap to stand up'), 'good'); }
     if (!cand) p.readyCalled = false;
     // Space = stand up whenever a wave is at you (a press just before it arrives is remembered)
     let take = null;
@@ -642,7 +735,7 @@
     if (actPressed) {
       if (take) { p.readyCalled = false; return startRide(take); }
       if (G.incoming) { p.wantStand = 1.2; toast('Get ready…'); }
-      else toast('No wave here yet · Shift to dive');
+      else toast(K('No wave here yet · Shift to dive', 'No wave here yet · Dive button to dive'));
     } else if (p.wantStand > 0 && take) { p.wantStand = 0; p.readyCalled = false; return startRide(take); }
   }
 
@@ -673,12 +766,12 @@
   function updateRide(dt) {
     const p = G.p, w = p.wave;
     G.rideT += dt; p.cutCd -= dt;
-    const ix = (keys.r ? 1 : 0) - (keys.l ? 1 : 0), iy = (keys.u ? 1 : 0) - (keys.d ? 1 : 0);
+    const [ix, iy] = axes();
     if (ix || iy) p.a += clamp(angDiff(p.a, Math.atan2(ix, iy)), -4.2 * dt, 4.2 * dt);
     // --- tricks ---
     if (jumpPressed && p.airT <= 0 && p.danceT <= 0) {
       if (p.v > 110) { p.airT = AIR; p.spin = 0; splash(p.x, p.y, 16, 110); }
-      else toast('Need more speed to jump · drop down the wave ↓', 'bad');
+      else toast(K('Need more speed to jump · drop down the wave ↓', 'Need more speed to jump · tilt back ↓ to drop down the wave'), 'bad');
     }
     if (p.airT > 0) {
       if (ix) p.spin += ix * 9 * dt;
@@ -1290,7 +1383,7 @@
       status = 'Held under…'; sub = `${G.lives} board${G.lives === 1 ? '' : 's'} left`;
     } else {
       if (p.y < PEAK_Y - 90) status = `Paddle to the peak · ${Math.round((PEAK_Y - p.y) * U2M)} m`;
-      else if (G.catchable) status = Math.cos(p.a) >= -0.35 ? 'Wave! Turn to shore ↓' : p.catch >= 0.5 ? 'Press Space to stand up!' : 'Paddle! Paddle!';
+      else if (G.catchable) status = Math.cos(p.a) >= -0.35 ? 'Wave! Turn to shore ↓' : p.catch >= 0.5 ? K('Press Space to stand up!', 'Tap to stand up!') : 'Paddle! Paddle!';
       else status = 'In the lineup · wait for a set';
       sub = `Swell ${G.peak.ft} ft · waves ridden ${G.ridden}`;
     }
@@ -1300,25 +1393,30 @@
     if (G.tutorial && G.mode === 'paddle' && G.incoming && p.y > PEAK_Y - 220) {
       const tt = (G.incoming.y - p.y) / G.incoming.speed;
       G.cueOn = true;
-      if (G.canTake) { cue = 'PRESS SPACE!<small>Stand up now</small>'; go = true; }
-      else if (tt > 1.7) cue = `Turn around ↓<small>Start paddling in ${Math.ceil(tt - 1.7)}…</small>`;
-      else { cue = 'PADDLE NOW! ↓<small>Hold ↓ toward the beach</small>'; go = true; }
+      if (G.canTake) { cue = K('PRESS SPACE!', 'TAP NOW!') + '<small>Stand up now</small>'; go = true; }
+      else if (tt > 1.7) cue = K('Turn around ↓', 'Tilt back ↓') + `<small>Start paddling in ${Math.ceil(tt - 1.7)}…</small>`;
+      else { cue = 'PADDLE NOW! ↓' + K('<small>Hold ↓ toward the beach</small>', '<small>Keep the phone tilted toward you</small>'); go = true; }
     }
     if (last.cue !== cue) { last.cue = cue; cueEl.innerHTML = cue; cueEl.hidden = !cue; }
     cueEl.classList.toggle('go', go);
     setText($('fin'), 'fin', `${G.finishes}/${GOAL}`);
+    if (!$('tilt').hidden) {
+      $('tiltDot').style.transform = `translate(${(tilt.sx * 24).toFixed(1)}px, ${(-tilt.sy * 24).toFixed(1)}px)`;
+    }
+    const hb = Math.round($('hud').getBoundingClientRect().bottom + 8) + 'px';
+    if (last.coachTop !== hb) { last.coachTop = hb; coach.el.style.top = hb; }
     // step-by-step coach
     let cn, ct, hot = false;
     const facing = Math.cos(p.a) < -0.35;
-    if (G.mode === 'ride') { cn = '★'; ct = p.airT > 0 ? 'Hold ← or → to spin!' : 'Ride to FINISH · X jump · Z dance'; }
+    if (G.mode === 'ride') { cn = '★'; ct = p.airT > 0 ? K('Hold ← or → to spin!', 'Tilt left or right to spin!') : K('Ride to FINISH · X jump · Z dance', 'Tilt ← → to ride to FINISH'); }
     else if (G.mode === 'won') { cn = '★'; ct = 'You won!'; }
     else if (G.mode === 'wipe') { cn = '!'; ct = 'Wiped out…'; }
-    else if (G.catchable) { cn = '5'; ct = 'Press SPACE to stand up!'; hot = true; }
-    else if ((G.catchable || G.incoming) && facing && p.y > PEAK_Y - 200) { cn = '4'; ct = 'Keep paddling ↓ The wave is almost at you'; }
-    else if (G.incoming && atPeak()) { cn = '3'; ct = 'Wave coming! Turn around ↓ and paddle to the beach'; hot = true; }
+    else if (G.catchable) { cn = '5'; ct = K('Press SPACE to stand up!', 'TAP the screen to stand up!'); hot = true; }
+    else if ((G.catchable || G.incoming) && facing && p.y > PEAK_Y - 200) { cn = '4'; ct = K('Keep paddling ↓ The wave is almost at you', 'Keep tilting back ↓ The wave is almost at you'); }
+    else if (G.incoming && atPeak()) { cn = '3'; ct = K('Wave coming! Turn around ↓ and paddle to the beach', 'Wave coming! Tilt back ↓ to paddle to the beach'); hot = true; }
     else if (atPeak()) { cn = '2'; ct = 'You’re at the peak. Wait for a wave…'; }
-    else if (p.y > PEAK_Y - 90) { cn = '1'; ct = `Move ${p.x < G.peak.x ? '→' : '←'} to the PEAK buoy`; }
-    else { cn = '1'; ct = `Paddle ↑ to the PEAK buoy · ${Math.round((PEAK_Y - p.y) * U2M)} m`; }
+    else if (p.y > PEAK_Y - 90) { cn = '1'; ct = K(`Move ${p.x < G.peak.x ? '→' : '←'} to the PEAK buoy`, `Tilt ${p.x < G.peak.x ? 'right →' : 'left ←'} to the PEAK buoy`); }
+    else { cn = '1'; ct = K('Paddle ↑', 'Tilt forward ↑') + ` to the PEAK buoy · ${Math.round((PEAK_Y - p.y) * U2M)} m`; }
     setText(coach.n, 'cn', cn); setText(coach.t, 'ct', ct);
     coach.el.classList.toggle('hot', hot);
     hud.arms.classList.toggle('boost', p.boost > 0);
